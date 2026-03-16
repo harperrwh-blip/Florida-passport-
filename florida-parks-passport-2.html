@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#3d2b1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FL Parks">
+<meta name="description" content="Collect badges for every Florida State Park you visit. 175 parks with GPS check-in.">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Inline SVG icon as data URI for apple-touch-icon fallback -->
+<link rel="apple-touch-icon" sizes="192x192" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%233d2b1f'/%3E%3Ccircle cx='96' cy='96' r='70' fill='%23c9a84c' opacity='.2'/%3E%3Ccircle cx='96' cy='96' r='55' fill='none' stroke='%23c9a84c' stroke-width='4'/%3E%3Ctext x='96' y='118' text-anchor='middle' font-size='72'>🌿%3C/text%3E%3C/svg%3E">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      // Inline service worker as blob URL so it works from file:// and any host
+      const swCode = `
+const CACHE = 'fl-parks-v1';
+const ASSETS = [location.href];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+    const clone = res.clone();
+    caches.open(CACHE).then(c => c.put(e.request, clone));
+    return res;
+  }).catch(() => caches.match(e.request))));
+});
+      `;
+      const blob = new Blob([swCode], {type: 'application/javascript'});
+      const swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).then(reg => {
+        console.log('SW registered');
+      }).catch(err => console.log('SW reg failed (normal on file://):', err));
+    });
+  }
+</script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Florida State Parks Passport</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bark: #3d2b1f;
+    --moss: #4a6741;
+    --fern: #6b8f5e;
+    --sage: #9ab08d;
+    --sand: #e8dcc8;
+    --parchment: #f5efe0;
+    --water: #4a7fa5;
+    --sky: #8db5cc;
+    --sunset: #c4703a;
+    --gold: #c9a84c;
+    --cream: #faf6ed;
+    --ink: #1e1208;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bark);
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0,0,0,0.03) 40px, rgba(0,0,0,0.03) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.02) 40px, rgba(0,0,0,0.02) 41px);
+    font-family: 'Libre Baskerville', serif;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(160deg, #1a1008 0%, #2d1f0e 40%, #3d2b1f 100%);
+    border-bottom: 4px solid var(--gold);
+    padding: 28px 20px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a84c' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
+  .header-seal {
+    width: 70px; height: 70px;
+    background: radial-gradient(circle, var(--gold) 0%, #a07830 60%, #7a5820 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+    font-size: 32px;
+    box-shadow: 0 0 0 3px var(--bark), 0 0 0 6px var(--gold), 0 4px 20px rgba(0,0,0,0.5);
+    position: relative;
+    z-index: 1;
+    animation: seal-glow 3s ease-in-out infinite;
+  }
+  @keyframes seal-glow {
+    0%, 100% { box-shadow: 0 0 0 3px var(--bark), 0 0 0 6px var(--gold), 0 4px 20px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 0 0 3px var(--bark), 0 0 0 6px var(--gold), 0 4px 30px rgba(201,168,76,0.4); }
+  }
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(22px, 5vw, 36px);
+    font-weight: 900;
+    color: var(--sand);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    position: relative; z-index: 1;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .header-sub {
+    font-family: 'Special Elite', cursive;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-top: 4px;
+    position: relative; z-index: 1;
+  }
+  .stats-bar {
+    display: flex; justify-content: center; gap: 32px;
+    margin-top: 16px;
+    position: relative; z-index: 1;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px; font-weight: 700;
+    color: var(--gold);
+  }
+  .stat-label {
+    font-family: 'Special Elite', cursive;
+    font-size: 10px; color: var(--sage);
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+
+  /* SEARCH & FILTER */
+  .controls {
+    background: var(--parchment);
+    border-bottom: 2px solid var(--sage);
+    padding: 14px 16px;
+    display: flex; gap: 10px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-wrap {
+    flex: 1; min-width: 180px;
+    position: relative;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--cream);
+    border: 2px solid var(--fern);
+    border-radius: 4px;
+    padding: 9px 12px 9px 36px;
+    font-family: 'Libre Baskerville', serif;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+  }
+  .search-wrap input:focus { border-color: var(--moss); }
+  .search-icon {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-size: 15px; pointer-events: none;
+  }
+  .filter-btn {
+    background: var(--cream);
+    border: 2px solid var(--sage);
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-family: 'Special Elite', cursive;
+    font-size: 12px; letter-spacing: 1px;
+    color: var(--bark);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    background: var(--moss);
+    border-color: var(--moss);
+    color: var(--cream);
+  }
+
+  /* GRID */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 24px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* PARK CARD */
+  .park-card {
+    background: var(--parchment);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3);
+    transition: transform 0.25s, box-shadow 0.25s;
+    cursor: pointer;
+    position: relative;
+    border: 1px solid rgba(74,103,65,0.3);
+  }
+  .park-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  }
+  .park-card.visited {
+    border-color: var(--gold);
+    box-shadow: 0 4px 16px rgba(201,168,76,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  .card-banner {
+    height: 90px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 52px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card-banner::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.25) 100%);
+  }
+  .visited-stamp {
+    position: absolute;
+    top: 8px; right: 10px;
+    background: var(--gold);
+    color: var(--bark);
+    font-family: 'Special Elite', cursive;
+    font-size: 9px; letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    z-index: 2;
+    transform: rotate(3deg);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .card-body { padding: 14px 16px 16px; }
+  .park-region {
+    font-family: 'Special Elite', cursive;
+    font-size: 10px; letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--fern);
+    margin-bottom: 4px;
+  }
+  .park-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px; font-weight: 700;
+    color: var(--bark);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .park-fact {
+    font-size: 12px;
+    color: #5a4030;
+    line-height: 1.5;
+    font-style: italic;
+    border-left: 3px solid var(--sage);
+    padding-left: 10px;
+    margin-bottom: 12px;
+  }
+  .card-footer {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .park-county {
+    font-family: 'Special Elite', cursive;
+    font-size: 11px; color: var(--water);
+    letter-spacing: 1px;
+  }
+  .visit-btn {
+    background: var(--moss);
+    color: var(--cream);
+    border: none;
+    border-radius: 3px;
+    padding: 7px 14px;
+    font-family: 'Special Elite', cursive;
+    font-size: 11px; letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .visit-btn:hover { background: var(--bark); }
+  .visit-btn.visited-btn {
+    background: var(--gold);
+    color: var(--bark);
+  }
+  .visit-btn.visited-btn:hover { background: var(--sunset); color: var(--cream); }
+
+  /* BADGE MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(20,12,4,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--parchment);
+    border-radius: 8px;
+    max-width: 420px; width: 100%;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 3px var(--gold);
+    transform: scale(0.85);
+    transition: transform 0.3s;
+  }
+  .modal-overlay.open .modal { transform: scale(1); }
+
+  .modal-banner {
+    height: 140px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 80px;
+    position: relative;
+  }
+  .badge-ring {
+    position: absolute;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    border: 4px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 70px;
+    animation: badge-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 0 8px rgba(201,168,76,0.2), 0 8px 32px rgba(0,0,0,0.4);
+  }
+  @keyframes badge-pop {
+    0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .stars-burst {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .star {
+    position: absolute;
+    font-size: 16px;
+    animation: star-fly 0.6s ease-out forwards;
+    opacity: 0;
+  }
+  @keyframes star-fly {
+    0% { transform: translate(0,0) scale(0); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 0; }
+  }
+
+  .modal-body { padding: 20px 24px 24px; }
+  .modal-badge-label {
+    font-family: 'Special Elite', cursive;
+    font-size: 11px; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--gold);
+    text-align: center; margin-bottom: 6px;
+  }
+  .modal-park-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px; font-weight: 900;
+    color: var(--bark); text-align: center;
+    margin-bottom: 4px;
+  }
+  .modal-region {
+    font-family: 'Special Elite', cursive;
+    font-size: 11px; letter-spacing: 2px;
+    color: var(--fern); text-align: center;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--sage), transparent);
+    margin: 14px 0;
+  }
+  .facts-title {
+    font-family: 'Special Elite', cursive;
+    font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--fern);
+    margin-bottom: 10px;
+  }
+  .fact-item {
+    display: flex; gap: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #4a3020;
+    line-height: 1.5;
+  }
+  .fact-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .visit-date {
+    font-family: 'Special Elite', cursive;
+    font-size: 12px; color: var(--water);
+    text-align: center; margin-top: 14px;
+  }
+  .modal-close {
+    display: block; width: 100%;
+    background: var(--moss);
+    color: var(--cream);
+    border: none;
+    padding: 12px;
+    font-family: 'Special Elite', cursive;
+    font-size: 13px; letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 16px;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+  .modal-close:hover { background: var(--bark); }
+
+  /* BADGES COLLECTION */
+  .collection-header {
+    text-align: center;
+    padding: 30px 20px 0;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .collection-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--sand);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .badges-row {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center;
+    padding: 0 20px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .mini-badge {
+    width: 52px; height: 52px;
+    background: radial-gradient(circle, #c9a84c, #7a5820);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    box-shadow: 0 0 0 2px var(--bark), 0 0 0 4px var(--gold), 0 3px 8px rgba(0,0,0,0.4);
+    cursor: pointer;
+    transition: transform 0.2s;
+    title: '';
+  }
+  .mini-badge:hover { transform: scale(1.15); }
+  .empty-badges {
+    font-family: 'Special Elite', cursive;
+    font-size: 13px; color: var(--sage);
+    letter-spacing: 1px; text-align: center;
+    padding: 8px 20px 20px;
+    opacity: 0.7;
+  }
+
+  /* NASSAU HIGHLIGHT */
+  .nassau-highlight .park-name { color: var(--moss); }
+  .nassau-tag {
+    display: inline-block;
+    background: var(--moss);
+    color: var(--cream);
+    font-family: 'Special Elite', cursive;
+    font-size: 9px; letter-spacing: 1px;
+    padding: 2px 6px; border-radius: 2px;
+    margin-left: 6px; vertical-align: middle;
+    text-transform: uppercase;
+  }
+
+  .no-results {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    font-family: 'Special Elite', cursive;
+    color: var(--sand);
+    font-size: 18px;
+    opacity: 0.6;
+  }
+
+
+  /* GPS CHECK-IN */
+  .gps-bar {
+    background: linear-gradient(135deg, #1a1008, #2d1f0e);
+    border-bottom: 3px solid var(--gold);
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .gps-btn {
+    background: var(--gold);
+    color: var(--bark);
+    border: none; border-radius: 4px;
+    padding: 10px 20px;
+    font-family: 'Special Elite', cursive;
+    font-size: 13px; letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
+  .gps-btn:hover { background: var(--sunset); color: var(--cream); }
+  .gps-btn.scanning { animation: gps-pulse 1.2s ease-in-out infinite; }
+  @keyframes gps-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); }
+    50% { box-shadow: 0 0 0 10px rgba(201,168,76,0); }
+  }
+  .gps-status { font-family: 'Special Elite', cursive; font-size: 12px; letter-spacing: 1px; color: var(--sage); flex: 1; }
+  .gps-status.found { color: var(--gold); }
+  .gps-status.error { color: #e06060; }
+  .gps-nearby-cards { background: #2a1a0a; border-bottom: 2px solid var(--fern); padding: 14px 20px; display: none; }
+  .gps-nearby-cards.show { display: block; }
+  .gps-nearby-title { font-family: 'Special Elite', cursive; font-size: 11px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; margin-bottom: 10px; }
+  .nearby-list { display: flex; gap: 10px; flex-wrap: wrap; }
+  .nearby-card { background: var(--parchment); border-radius: 5px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent; min-width: 180px; flex: 1; }
+  .nearby-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+  .nearby-card.at-park { border-color: var(--gold); background: #fff9ee; }
+  .nearby-emoji { font-size: 28px; }
+  .nearby-info { flex: 1; }
+  .nearby-name { font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 700; color: var(--bark); line-height: 1.2; }
+  .nearby-dist { font-family: 'Special Elite', cursive; font-size: 11px; margin-top: 2px; }
+  .nearby-dist.close { color: var(--moss); }
+  .nearby-dist.medium { color: var(--water); }
+  .nearby-checkin-btn { background: var(--moss); color: var(--cream); border: none; border-radius: 3px; padding: 5px 10px; font-family: 'Special Elite', cursive; font-size: 10px; letter-spacing: 1px; cursor: pointer; text-transform: uppercase; transition: background 0.2s; white-space: nowrap; }
+  .nearby-checkin-btn:hover { background: var(--bark); }
+  .nearby-checkin-btn.done { background: var(--gold); color: var(--bark); }
+
+
+  /* TABS */
+  .main-tabs { display:flex; background:#1a1008; border-bottom:3px solid var(--gold); overflow-x:auto; }
+  .tab-btn { flex:1; min-width:70px; padding:12px 4px; background:none; border:none; color:var(--sage); font-family:'Special Elite',cursive; font-size:11px; letter-spacing:1px; text-transform:uppercase; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-3px; transition:all 0.2s; white-space:nowrap; }
+  .tab-btn.active { color:var(--gold); border-bottom-color:var(--gold); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+  /* PROFILES */
+  .profiles-bar { background:#2a1a0a; border-bottom:2px solid var(--fern); padding:10px 16px; display:flex; align-items:center; gap:8px; overflow-x:auto; }
+  .profile-chip { display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; border:2px solid transparent; cursor:pointer; font-family:'Special Elite',cursive; font-size:11px; letter-spacing:1px; white-space:nowrap; transition:all 0.2s; background:#1a1008; color:var(--sage); }
+  .profile-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .add-profile-btn { background:none; border:2px dashed var(--fern); border-radius:20px; padding:6px 12px; color:var(--fern); font-family:'Special Elite',cursive; font-size:11px; cursor:pointer; white-space:nowrap; }
+  .add-profile-btn:hover { border-color:var(--gold); color:var(--gold); }
+  /* DIFFICULTY + ACTIVITIES */
+  .park-meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+  .diff-badge { font-family:'Special Elite',cursive; font-size:10px; letter-spacing:1px; padding:2px 8px; border-radius:10px; color:white; }
+  .activity-tag { font-family:'Special Elite',cursive; font-size:10px; letter-spacing:1px; background:var(--bark); color:var(--sage); padding:2px 7px; border-radius:10px; }
+  /* MODAL TABS */
+  .modal-tabs { display:flex; border-bottom:2px solid var(--sage); margin-bottom:14px; }
+  .modal-tab { flex:1; padding:8px 2px; background:none; border:none; font-family:'Special Elite',cursive; font-size:10px; letter-spacing:1px; color:var(--fern); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; text-transform:uppercase; transition:all 0.2s; }
+  .modal-tab.active { color:var(--bark); border-bottom-color:var(--bark); }
+  .modal-tab-panel { display:none; }
+  .modal-tab-panel.active { display:block; }
+  /* WILDLIFE */
+  .wildlife-list { display:flex; flex-direction:column; gap:6px; }
+  .wildlife-item { display:flex; align-items:center; gap:10px; padding:7px 10px; background:var(--cream); border-radius:4px; cursor:pointer; border:2px solid transparent; transition:all 0.15s; }
+  .wildlife-item.checked { background:#f0ffe8; border-color:var(--fern); }
+  .wildlife-check { width:20px; height:20px; border-radius:50%; border:2px solid var(--sage); display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+  .wildlife-item.checked .wildlife-check { background:var(--fern); border-color:var(--fern); color:white; }
+  .wildlife-name { font-family:'Libre Baskerville',serif; font-size:13px; color:var(--ink); }
+  /* JOURNAL */
+  .journal-entry { background:var(--cream); border-radius:4px; padding:12px; }
+  .journal-textarea { width:100%; background:white; border:2px solid var(--sage); border-radius:4px; padding:8px; font-family:'Libre Baskerville',serif; font-size:13px; color:var(--ink); resize:vertical; min-height:80px; outline:none; box-sizing:border-box; }
+  .journal-textarea:focus { border-color:var(--moss); }
+  .journal-save-btn { margin-top:8px; background:var(--moss); color:var(--cream); border:none; border-radius:3px; padding:7px 16px; font-family:'Special Elite',cursive; font-size:11px; letter-spacing:1px; cursor:pointer; text-transform:uppercase; }
+  .journal-saved { color:var(--fern); font-family:'Special Elite',cursive; font-size:11px; margin-left:8px; opacity:0; transition:opacity 0.3s; }
+  /* DIRECTIONS */
+  .directions-btn { display:flex; align-items:center; gap:8px; background:var(--water); color:white; border:none; border-radius:4px; padding:9px 14px; font-family:'Special Elite',cursive; font-size:11px; letter-spacing:1px; cursor:pointer; text-transform:uppercase; margin-top:10px; width:100%; justify-content:center; }
+  .directions-btn:hover { background:#3a6a8a; }
+  .dist-display { font-family:'Special Elite',cursive; font-size:12px; color:var(--water); margin-top:6px; text-align:center; }
+  /* CHALLENGES TAB */
+  .challenges-grid { display:flex; flex-direction:column; gap:12px; padding:20px; max-width:600px; margin:0 auto; }
+  .challenge-card { background:var(--parchment); border-radius:6px; padding:14px 16px; border:2px solid var(--sage); }
+  .challenge-card.complete { border-color:var(--gold); background:#fff9ee; }
+  .challenge-top { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .challenge-emoji { font-size:28px; }
+  .challenge-name { font-family:'Playfair Display',serif; font-size:15px; font-weight:700; color:var(--bark); }
+  .challenge-desc { font-family:'Special Elite',cursive; font-size:11px; color:var(--fern); letter-spacing:1px; margin-top:2px; }
+  .challenge-bar-wrap { background:#ddd; border-radius:4px; height:8px; overflow:hidden; }
+  .challenge-bar { height:100%; border-radius:4px; background:var(--moss); transition:width 0.6s; }
+  .challenge-bar.done { background:var(--gold); }
+  .challenge-pct { font-family:'Special Elite',cursive; font-size:11px; color:var(--fern); text-align:right; margin-top:4px; }
+  /* JOURNAL TAB */
+  .journal-tab-list { display:flex; flex-direction:column; gap:12px; padding:20px; max-width:600px; margin:0 auto; }
+  .journal-entry-card { background:var(--parchment); border-radius:6px; padding:14px 16px; border-left:4px solid var(--gold); cursor:pointer; }
+  .journal-entry-card:hover { background:#fff9ee; }
+  .journal-entry-park { font-family:'Playfair Display',serif; font-size:15px; font-weight:700; color:var(--bark); }
+  .journal-entry-date { font-family:'Special Elite',cursive; font-size:11px; color:var(--water); margin-top:2px; }
+  .journal-entry-preview { font-size:13px; color:#5a4030; margin-top:6px; font-style:italic; }
+  .journal-empty { text-align:center; padding:60px 20px; font-family:'Special Elite',cursive; color:var(--sand); opacity:0.6; font-size:14px; }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bark); }
+  ::-webkit-scrollbar-thumb { background: var(--fern); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-seal">🌿</div>
+  <h1>Florida State Parks Passport</h1>
+  <div class="header-sub">Collect Your Adventures</div>
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-num" id="visited-count">0</div><div class="stat-label">Visited</div></div>
+    <div class="stat"><div class="stat-num" id="total-count">0</div><div class="stat-label">Total Parks</div></div>
+    <div class="stat"><div class="stat-num" id="pct-count">0%</div><div class="stat-label">Complete</div></div>
+  </div>
+</div>
+
+<div class="collection-header"><div class="collection-title">⭐ Your Badge Collection</div></div>
+<div class="badges-row" id="badges-row"><div class="empty-badges">Visit parks to earn badges!</div></div>
+
+<div class="gps-bar">
+  <button class="gps-btn" id="gps-btn" onclick="startGPS()"><span id="gps-icon">📍</span> Check Me In</button>
+  <div class="gps-status" id="gps-status">Tap to detect your location and find nearby parks</div>
+</div>
+<div class="gps-nearby-cards" id="gps-nearby-cards">
+  <div class="gps-nearby-title">📍 Parks Near You</div>
+  <div class="nearby-list" id="nearby-list"></div>
+</div>
+
+<div class="profiles-bar" id="profiles-bar"></div>
+<div class="main-tabs">
+  <button class="tab-btn active" onclick="switchTab('parks')">🌿 Parks</button>
+  <button class="tab-btn" onclick="switchTab('badges')">🏅 Badges</button>
+  <button class="tab-btn" onclick="switchTab('challenges')">⭐ Challenges</button>
+  <button class="tab-btn" onclick="switchTab('journal')">📓 Journal</button>
+</div>
+<div class="tab-panel active" id="tab-parks">
+  <div class="controls">
+    <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="search" placeholder="Search parks..."></div>
+    <button class="filter-btn active" data-filter="all">All Parks</button>
+    <button class="filter-btn" data-filter="visited">Visited</button>
+    <button class="filter-btn" data-filter="unvisited">Not Yet</button>
+    <button class="filter-btn" data-filter="nassau">Nassau County</button>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+<div class="tab-panel" id="tab-badges">
+  <div style="padding:24px 20px;max-width:1200px;margin:0 auto;">
+    <div style="font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--sand);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;text-align:center;">⭐ Badge Collection</div>
+    <div class="badges-row" id="badges-tab-row" style="justify-content:flex-start;"></div>
+  </div>
+</div>
+<div class="tab-panel" id="tab-challenges"><div class="challenges-grid" id="challenges-grid"></div></div>
+<div class="tab-panel" id="tab-journal"><div class="journal-tab-list" id="journal-tab-list"></div></div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-banner" id="modal-banner">
+      <div class="stars-burst" id="stars-burst"></div>
+      <div class="badge-ring" id="badge-emoji"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-badge-label">🏅 Badge Earned!</div>
+      <div class="modal-park-name" id="modal-name"></div>
+      <div class="modal-region" id="modal-region"></div>
+      <div class="park-meta" id="modal-meta"></div>
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchModalTab(this,'facts')">Facts</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'wildlife')">Wildlife</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'journal')">Journal</button>
+        <button class="modal-tab" onclick="switchModalTab(this,'directions')">Directions</button>
+      </div>
+      <div class="modal-tab-panel active" id="mtab-facts">
+        <div class="facts-title">📖 Park Facts</div>
+        <div id="modal-facts"></div>
+      </div>
+      <div class="modal-tab-panel" id="mtab-wildlife">
+        <div class="facts-title">🦎 Wildlife Checklist</div>
+        <div class="wildlife-list" id="modal-wildlife"></div>
+      </div>
+      <div class="modal-tab-panel" id="mtab-journal">
+        <div class="journal-entry">
+          <div class="facts-title">📓 Trip Notes</div>
+          <textarea class="journal-textarea" id="journal-text" placeholder="What did you see? Wildlife spotted?"></textarea>
+          <div style="display:flex;align-items:center;">
+            <button class="journal-save-btn" onclick="saveJournal()">Save Notes</button>
+            <span class="journal-saved" id="journal-saved">✓ Saved!</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-tab-panel" id="mtab-directions">
+        <div id="modal-dist" class="dist-display"></div>
+        <button class="directions-btn" onclick="openDirections()">🗺️ Get Directions in Google Maps</button>
+        <div style="font-family:'Special Elite',cursive;font-size:11px;color:var(--sage);text-align:center;margin-top:8px;letter-spacing:1px;">Opens Google Maps navigation</div>
+      </div>
+      <div class="visit-date" id="modal-date"></div>
+      <button class="modal-close" id="modal-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PARKS = [
+  { id:1, lat:30.6741, lng:-81.4395, name:"Addison Blockhouse Historic State Park", region:"Northeast Florida", county:"Volusia", emoji:"🏚️", color:"#7a5020", fact:"Ruins of a 19th-century sugar plantation and blockhouse attacked during the Second Seminole War.", facts:[{icon:"⚔️",text:"The blockhouse was attacked by Seminole warriors in 1836 during the Second Seminole War."},{icon:"🌿",text:"Ancient live oaks draped in Spanish moss canopy the ruins."},{icon:"🏛️",text:"One of the least-visited historic sites in Florida, preserving genuine frontier-era ruins."},{icon:"🦎",text:"Gopher tortoises and Florida scrub lizards inhabit the scrub surrounding the ruins."}]},
+  { id:2, lat:27.7520, lng:-82.1024, name:"Alafia River State Park", region:"Central Florida", county:"Hillsborough", emoji:"🚵", color:"#5a7a30", fact:"Built on a reclaimed phosphate mine with the most varied terrain and best mountain biking in Florida.", facts:[{icon:"🚵",text:"Over 20 miles of mountain bike trails wind through hilly reclaimed mine landscape."},{icon:"⛏️",text:"The park sits on former phosphate strip mines — reclamation created dramatic ridges and valleys."},{icon:"🦅",text:"Bald eagles nest in the park and are regularly spotted soaring overhead."},{icon:"🌿",text:"Scrub, flatwoods, and wetlands support an unusually wide range of wildlife."}]},
+  { id:3, lat:30.5046, lng:-84.2652, name:"Alfred B. Maclay Gardens State Park", region:"Panhandle", county:"Leon", emoji:"🌺", color:"#9a3060", fact:"A stunning 1920s winter estate garden featuring over 170 varieties of camellias and azaleas.", facts:[{icon:"🌸",text:"Gardens peak January–April with spectacular camellias and azaleas."},{icon:"🏡",text:"The historic Maclay House (1909) is open for tours with original furnishings."},{icon:"🐢",text:"Lake Hall offers paddling, fishing, and Florida cooter turtles."},{icon:"🌿",text:"Over 800 ornamental plant species have been catalogued on the grounds."}]},
+  { id:4, lat:30.5218, lng:-81.4468, name:"Amelia Island State Park", region:"Northeast Florida", county:"Nassau", emoji:"🐴", color:"#c4703a", fact:"The only Florida state park where you can ride horses on the beach.", facts:[{icon:"🐴",text:"Guided horseback rides on the beach — the only such experience at a Florida state park."},{icon:"🌊",text:"Sits at the southern tip of Amelia Island where Nassau Sound meets the Atlantic."},{icon:"🦀",text:"Ghost crabs, loggerhead turtle nests, and shorebird colonies line the shoreline."},{icon:"🏄",text:"Strong tidal currents create excellent fishing for red drum and flounder."}]},
+  { id:5, lat:29.8982, lng:-81.2830, name:"Anastasia State Park", region:"Northeast Florida", county:"St. Johns", emoji:"🦎", color:"#c4703a", fact:"Ancient coquina rock formations and 4 miles of undeveloped Atlantic beach near St. Augustine.", facts:[{icon:"🏛️",text:"Coquina rock quarried here was used to build Castillo de San Marcos in the 1600s–1700s."},{icon:"🦎",text:"Gopher tortoises, Florida scrub lizards, and indigo snakes inhabit the scrub areas."},{icon:"🌊",text:"Salt Run lagoon is ideal for kayaking and paddleboarding."},{icon:"🐦",text:"A large colony of least terns and black skimmers nests on the beach each summer."}]},
+  { id:6, lat:28.1825, lng:-82.7685, name:"Anclote Key Preserve State Park", region:"Central West Florida", county:"Pasco", emoji:"⚓", color:"#2d6e8a", fact:"A remote barrier island accessible only by boat, with a historic 1887 lighthouse.", facts:[{icon:"🏝️",text:"The island has no facilities — only nature trails, beach, and the historic Anclote Lighthouse."},{icon:"🦅",text:"Ospreys, bald eagles, and roseate spoonbills commonly nest or feed on the island."},{icon:"🐚",text:"Gulf-side beaches offer excellent shelling with lightning whelks and sand dollars."},{icon:"⛵",text:"Surrounding shallow grass flats are prime habitat for spotted sea trout."}]},
+  { id:7, lat:27.0200, lng:-80.1875, name:"Atlantic Ridge Preserve State Park", region:"Southeast Florida", county:"Martin", emoji:"🌴", color:"#2d7a3a", fact:"A tropical wilderness protecting the headwaters of the St. Lucie River.", facts:[{icon:"🌿",text:"One of the last large undeveloped tracts in Martin County."},{icon:"🦋",text:"Florida's endangered Schaus' swallowtail butterfly has been documented here."},{icon:"🌊",text:"Protects headwaters flowing into the St. Lucie River and Indian River Lagoon."},{icon:"🐾",text:"Florida black bears, bobcats, and white-tailed deer roam the diverse habitats."}]},
+  { id:8, lat:24.6627, lng:-81.2733, name:"Bahia Honda State Park", region:"Florida Keys", county:"Monroe", emoji:"🌴", color:"#1a8080", fact:"Consistently rated one of the best beaches in the US, with views of the old Bahia Honda Rail Bridge.", facts:[{icon:"🌉",text:"The 1912 Overseas Railroad bridge beside the park is iconic Florida Keys history."},{icon:"🐠",text:"The park sits atop a natural deep-water channel, excellent for snorkeling."},{icon:"🌴",text:"Rare silver palm trees — native only to the Florida Keys — grow here."},{icon:"🐦",text:"White-crowned pigeons and magnificent frigatebirds are regularly spotted."}]},
+  { id:9, lat:29.9210, lng:-84.3536, name:"Bald Point State Park", region:"Panhandle", county:"Franklin", emoji:"🌬️", color:"#2d6e8a", fact:"A remote point at the confluence of Apalachee Bay and Ochlockonee Bay, famous for wind sports.", facts:[{icon:"🌊",text:"Water on three sides — Apalachee Bay, Ochlockonee Bay, and the Gulf."},{icon:"🏄",text:"One of the top kiteboarding and windsurfing spots in the Southeast."},{icon:"🦅",text:"Swallow-tailed kites pass through in large numbers during spring migration."},{icon:"🌿",text:"Rare coastal scrub habitat supports gopher tortoises and Eastern indigo snakes."}]},
+  { id:10, lat:25.5280, lng:-80.2343, name:"Barnacle Historic State Park", region:"Southeast Florida", county:"Miami-Dade", emoji:"🏡", color:"#4a6741", fact:"Miami's oldest house (1891) on its original waterfront land in Coconut Grove.", facts:[{icon:"🏡",text:"Built in 1891 by Ralph Middleton Munroe — the oldest Miami-Dade home on its original site."},{icon:"⛵",text:"Munroe was a yacht designer; the home was built partly from salvaged shipwreck timber."},{icon:"🌊",text:"Grounds extend to Biscayne Bay — one of few public bayfront access points in Coconut Grove."},{icon:"🎵",text:"Monthly moonlight concerts continue a tradition of outdoor bayfront entertainment."}]},
+  { id:11, lat:30.3594, lng:-87.0275, name:"Big Lagoon State Park", region:"Panhandle", county:"Escambia", emoji:"🌅", color:"#c4703a", fact:"Stunning sunset views over the Intracoastal Waterway and Big Lagoon, near Pensacola.", facts:[{icon:"🌅",text:"The observation tower offers some of the most spectacular sunset views on the Gulf Coast."},{icon:"🌊",text:"Big Lagoon is a sheltered estuary rich in fish, birds, and marine life."},{icon:"🦀",text:"Blue crabs, mullet, and redfish are abundant in the lagoon."},{icon:"🏕️",text:"Shaded campsites with electrical hookups make this a popular snowbird camping spot."}]},
+  { id:12, lat:30.3452, lng:-82.7048, name:"Big Shoals State Park", region:"North Florida", county:"Hamilton", emoji:"🌊", color:"#1a5c7a", fact:"Home to Florida's largest whitewater rapids — a rare Class III stretch of the Suwannee River.", facts:[{icon:"🌊",text:"The Suwannee drops over limestone creating the only significant whitewater rapids in Florida."},{icon:"🛶",text:"Kayakers travel from across the state to run the Class III rapids in winter high water."},{icon:"🌿",text:"Beautiful riverside forest with towering sycamores lines the banks."},{icon:"🐾",text:"Black bears are frequently spotted in the park."}]},
+  { id:13, lat:30.5293, lng:-81.5080, name:"Big Talbot Island State Park", region:"Northeast Florida", county:"Nassau/Duval", emoji:"🌊", color:"#4a7fa5", fact:"Famous for the Boneyard Beach — hauntingly beautiful bleached oak trees on the shoreline.", facts:[{icon:"🌿",text:"One of the largest undeveloped barrier islands on the Atlantic Coast."},{icon:"🦅",text:"A prime birding destination with over 200 recorded species including bald eagles."},{icon:"🎨",text:"Boneyard Beach is one of the most photographed natural landscapes in Florida."},{icon:"🦋",text:"Maritime shrub and tidal marsh support exceptional butterfly diversity."}]},
+  { id:14, lat:25.6791, lng:-80.1618, name:"Bill Baggs Cape Florida State Park", region:"Southeast Florida", county:"Miami-Dade", emoji:"🔦", color:"#2d6e8a", fact:"Home to Miami's historic 1825 Cape Florida Lighthouse — the oldest structure in Miami-Dade County.", facts:[{icon:"🔦",text:"The 1825 Cape Florida Lighthouse is Miami-Dade's oldest structure — twice attacked and burned."},{icon:"🏝️",text:"The park occupies Key Biscayne's southern tip with views of Biscayne Bay and the Atlantic."},{icon:"🐢",text:"Loggerhead and green turtles nest on the park's beaches each summer."},{icon:"🚲",text:"A designated bike path and beach concessions make this Miami's most accessible escape."}]},
+  { id:15, lat:30.5810, lng:-87.0338, name:"Blackwater Heritage State Trail", region:"Panhandle", county:"Santa Rosa", emoji:"🚴", color:"#4a6741", fact:"A 9.5-mile paved trail following a historic railroad corridor through longleaf pine forest.", facts:[{icon:"🚴",text:"Follows the old Whiting Field railroad corridor from Milton to the Naval Air Station."},{icon:"🌲",text:"Passes through longleaf pine flatwoods — one of the most threatened ecosystems in North America."},{icon:"🦋",text:"Wildflower blooms attract monarch butterflies and native pollinators."},{icon:"🏛️",text:"Passes through downtown Milton, one of the oldest towns in the Florida Panhandle."}]},
+  { id:16, lat:30.7199, lng:-86.8896, name:"Blackwater River State Park", region:"Panhandle", county:"Santa Rosa", emoji:"🍂", color:"#8b5a1a", fact:"One of the purest sand-bottom blackwater rivers in the world, stained by tannins.", facts:[{icon:"🛶",text:"The Blackwater River is one of the premier canoe trails in the southeastern United States."},{icon:"🌿",text:"Ancient longleaf pine forests line the river corridor."},{icon:"💧",text:"The dark tea-colored water is actually extremely clean — acidity prevents bacterial growth."},{icon:"🦦",text:"River otters, wood ducks, and the rare Barbour's map turtle live along the river."}]},
+  { id:17, lat:28.9505, lng:-81.3628, name:"Blue Spring State Park", region:"Central Florida", county:"Volusia", emoji:"🐬", color:"#1a7a9a", fact:"The most important winter manatee refuge in Florida and largest first-magnitude spring on the St. Johns River.", facts:[{icon:"🦭",text:"Hundreds of West Indian manatees gather in the 72°F spring run each winter."},{icon:"💧",text:"The spring pumps 100 million gallons of crystal-clear water per day into the St. Johns River."},{icon:"🤿",text:"Swimming and snorkeling are permitted in summer — visibility exceeds 100 feet."},{icon:"🏡",text:"The historic Thursby House (1872) gives a glimpse of steamboat-era St. Johns River life."}]},
+  { id:18, lat:29.4630, lng:-81.1120, name:"Bulow Creek State Park", region:"Northeast Florida", county:"Flagler", emoji:"🌳", color:"#4a6741", fact:"Home to the Fairchild Oak, one of the largest and oldest live oak trees in the entire Southeast.", facts:[{icon:"🌳",text:"The Fairchild Oak is estimated to be over 2,000 years old with a 25-foot circumference."},{icon:"🚶",text:"The Bulow Woods Trail is one of the finest forest hikes in Florida."},{icon:"🌿",text:"Protects a rare and undisturbed example of North Florida's coastal hammock ecosystem."},{icon:"🐦",text:"Pileated woodpeckers, barred owls, and swallow-tailed kites are commonly spotted."}]},
+  { id:19, lat:29.4782, lng:-81.1321, name:"Bulow Plantation Ruins Historic State Park", region:"Northeast Florida", county:"Flagler", emoji:"🏚️", color:"#7a5020", fact:"Haunting ruins of an 1820s sugar plantation destroyed by Seminole warriors in 1836.", facts:[{icon:"⚔️",text:"The plantation was burned by Seminole warriors in 1836 and the ruins remain largely untouched."},{icon:"🏭️",text:"The massive sugar mill ruins — boiler house and spring house — still stand in remarkable condition."},{icon:"🛶",text:"Bulow Creek offers excellent kayaking through a pristine blackwater tidal creek system."},{icon:"🌿",text:"Ruins are surrounded by ancient live oaks that have grown through the old stonework."}]},
+  { id:20, lat:28.0348, lng:-82.7719, name:"Caladesi Island State Park", region:"Central West Florida", county:"Pinellas", emoji:"🏝️", color:"#1a8080", fact:"Consistently ranked among the top beaches in the USA, accessible only by ferry or private boat.", facts:[{icon:"🏝️",text:"Caladesi was connected to Honeymoon Island until a 1921 hurricane cut the two apart."},{icon:"🐚",text:"The Gulf-side beach is pristine with soft white quartz sand and excellent shelling."},{icon:"🦅",text:"Osprey, roseate spoonbills, and shorebirds nest throughout the salt marsh and mangroves."},{icon:"⛵",text:"The marina accommodates up to 100 boats — a popular anchorage destination."}]},
+  { id:21, lat:26.6824, lng:-82.2673, name:"Cayo Costa State Park", region:"Southwest Florida", county:"Lee", emoji:"🏝️", color:"#c4703a", fact:"A pristine barrier island accessible only by boat — one of Florida's most unspoiled natural beaches.", facts:[{icon:"🐚",text:"Some of the best shelling beaches in all of Florida, rivaling nearby Sanibel Island."},{icon:"🦅",text:"Bald eagle nests and roseate spoonbills in tidal flats."},{icon:"🌊",text:"No roads, no bridges, no cars — only accessible via private boat or ferry from Pine Island."},{icon:"🦈",text:"Nurse sharks and rays are commonly spotted in the shallow Gulf-side waters."}]},
+  { id:22, lat:29.9046, lng:-82.5702, name:"Cedar Key Museum State Park", region:"Nature Coast", county:"Levy", emoji:"🏛️", color:"#4a6741", fact:"Chronicles Cedar Key's history as once one of Florida's largest cities and the pencil-making capital.", facts:[{icon:"✏️",text:"Cedar Key was once the pencil capital of the USA — Eberhard Faber built a pencil factory here."},{icon:"🎣",text:"The cedar forests were clear-cut so rapidly the island's economy collapsed, leaving it isolated."},{icon:"🦅",text:"Today Cedar Key is a premier birding destination, especially during winter hawk migration."},{icon:"🎨",text:"The island is now known for its arts community and annual arts festival."}]},
+  { id:23, lat:29.1600, lng:-82.6480, name:"Charlotte Harbor Preserve State Park", region:"Southwest Florida", county:"Charlotte/Sarasota/Lee", emoji:"🦩", color:"#2d7a4a", fact:"Florida's second largest state park — 50,000 acres of estuaries, mangroves, and pine flatwoods.", facts:[{icon:"🦩",text:"One of the most productive estuaries in Florida, with enormous flocks of roseate spoonbills."},{icon:"🐟",text:"Charlotte Harbor is a world-class sport fishing destination for tarpon, snook, and redfish."},{icon:"🌿",text:"One of the largest intact subtropical estuarine ecosystems in the US."},{icon:"🦅",text:"Bald eagle density is among the highest of any protected area in the southeastern US."}]},
+  { id:24, lat:28.4000, lng:-82.0166, name:"Colt Creek State Park", region:"Central Florida", county:"Polk", emoji:"🌾", color:"#6b7a2a", fact:"A hidden gem in Polk County with some of Central Florida's best paddling, fishing, and equestrian trails.", facts:[{icon:"🛶",text:"A paddling trail winds through cypress-lined lakes — one of the most scenic paddles in Central Florida."},{icon:"🐎",text:"Dedicated equestrian trails and horse camping make Colt Creek popular with riders."},{icon:"🌾",text:"Vast dry prairies support sandhill cranes, crested caracaras, and Florida grasshopper sparrows."},{icon:"🦌",text:"White-tailed deer and wild turkey are commonly observed from the trails."}]},
+  { id:25, lat:26.0870, lng:-81.6440, name:"Collier-Seminole State Park", region:"South Florida", county:"Collier", emoji:"🌿", color:"#1a5a2a", fact:"A gateway to the Ten Thousand Islands protecting rare mangrove estuary and royal palm hammock.", facts:[{icon:"🌿",text:"The park contains one of the few remaining stands of Florida royal palms in native hammock."},{icon:"🛶",text:"A 13-mile canoe trail loops through the Ten Thousand Islands — one of Florida's wildest paddles."},{icon:"🦩",text:"Wood storks, roseate spoonbills, and the rare snail kite can be observed in the wetlands."},{icon:"🏛️",text:"A restored Bay City Walking Dredge — used to build the Tamiami Trail — is on display."}]},
+  { id:26, lat:30.4007, lng:-85.0357, name:"Constitution Convention Museum State Park", region:"Panhandle", county:"Calhoun", emoji:"📜", color:"#7a5020", fact:"Site where delegates met in 1838–39 to draft Florida's first constitution, paving the way for statehood.", facts:[{icon:"📜",text:"The 1838 Constitutional Convention produced the document allowing Florida statehood in 1845."},{icon:"🏛️",text:"The museum displays exhibits on Florida's territorial history and the convention delegates."},{icon:"🌊",text:"The park sits on the Apalachicola River — a critical freshwater artery flowing into the Gulf."},{icon:"🦅",text:"The Apalachicola River basin has more endemic species than any other river basin in North America."}]},
+  { id:27, lat:29.1860, lng:-82.6980, name:"Crystal River Preserve State Park", region:"Nature Coast", county:"Citrus", emoji:"🦭", color:"#1a7a9a", fact:"Critical winter habitat for the West Indian manatee along the spring-fed Crystal River and Kings Bay.", facts:[{icon:"🦭",text:"Kings Bay hosts the largest concentration of manatees in North America during winter months."},{icon:"🤿",text:"Crystal River is one of only a few places where you can legally swim with manatees."},{icon:"💧",text:"Over 30 springs keep Kings Bay at a constant 72°F year-round."},{icon:"🌿",text:"The surrounding preserve protects tidal marshes and flatwoods critical for wading bird nesting."}]},
+  { id:28, lat:26.4300, lng:-81.8350, name:"Delnor-Wiggins Pass State Park", region:"Southwest Florida", county:"Collier", emoji:"🌊", color:"#2d8aaa", fact:"One of Florida's most beautiful Gulf beaches, at the mouth of Wiggins Pass.", facts:[{icon:"🌊",text:"The park sits at the mouth of Wiggins Pass where the Cocohatchee River meets the Gulf."},{icon:"🐚",text:"The beach is famous for shelling with lightning whelks and sand dollars."},{icon:"🦅",text:"Osprey nest on channel markers in the pass, and bald eagles are frequently spotted."},{icon:"🐢",text:"Sea turtle monitoring is active here in summer with loggerhead nesting documented annually."}]},
+  { id:29, lat:29.1365, lng:-81.3557, name:"De Leon Springs State Park", region:"Central Florida", county:"Volusia", emoji:"🥞", color:"#1a7a6a", fact:"A first-magnitude spring famous for its Old Sugar Mill restaurant where you cook your own pancakes.", facts:[{icon:"🥞",text:"The Old Spanish Sugar Mill lets diners cook their own pancakes at the table."},{icon:"💧",text:"The spring pumps 19 million gallons of 72°F water daily."},{icon:"🏛️",text:"Spanish explorers called this the 'Fountain of Youth' in the 16th century."},{icon:"🌿",text:"Ancient bald cypress trees ring the spring head, some estimated over 500 years old."}]},
+  { id:30, lat:29.6716, lng:-82.2958, name:"Devil's Millhopper Geological State Park", region:"North Central Florida", county:"Alachua", emoji:"🕳️", color:"#4a3030", fact:"A dramatic 120-foot-deep geological sinkhole with its own microclimate, waterfalls, and prehistoric fossils.", facts:[{icon:"🕳️",text:"The sinkhole is 120 feet deep and 500 feet wide, formed when a limestone cavern roof collapsed."},{icon:"🌿",text:"The sinkhole's cool microclimate supports plant species normally found hundreds of miles north."},{icon:"🦷",text:"Prehistoric marine fossils including shark teeth and whale bones have been found in the walls."},{icon:"💧",text:"Several small waterfalls cascade down the walls after rainfall."}]},
+  { id:31, lat:29.6474, lng:-82.5830, name:"Dudley Farm Historic State Park", region:"North Central Florida", county:"Alachua", emoji:"🐄", color:"#7a5020", fact:"A fully operational 1880s working farm where staff in period dress demonstrate authentic 19th-century farm life.", facts:[{icon:"🐄",text:"The farm has working cane mills, smokehouse, barns, and livestock — all authentic to the 1880s."},{icon:"🌽",text:"Costumed interpreters demonstrate corn shucking, syrup making, and blacksmithing."},{icon:"🏡",text:"The original Dudley family farmhouse and outbuildings have been preserved on the property."},{icon:"🌿",text:"The surrounding fields and woodlots have been restored to their historic agricultural landscape."}]},
+  { id:32, lat:29.6450, lng:-81.7280, name:"Dunns Creek State Park", region:"Northeast Florida", county:"Putnam/St. Johns", emoji:"🛶", color:"#4a6741", fact:"A pristine blackwater creek cutting through ancient cypress forest — one of Northeast Florida's best paddles.", facts:[{icon:"🛶",text:"Dunns Creek is a designated Florida paddling trail through swamp and hammock."},{icon:"🌿",text:"Ancient bald cypress trees line the creek, some over 600 years old."},{icon:"🐊",text:"American alligators are abundant and frequently spotted sunning on the banks."},{icon:"🐦",text:"Wood ducks, limpkins, and anhingas are permanent residents of the swamp forest."}]},
+  { id:33, lat:30.5034, lng:-86.3568, name:"Eden Gardens State Park", region:"Panhandle", county:"Walton", emoji:"🌸", color:"#9a3060", fact:"A stunning antebellum mansion surrounded by formal gardens and ancient live oaks along Choctawhatchee Bay.", facts:[{icon:"🏛️",text:"The Wesley House (1895) is one of the finest examples of antebellum architecture in the Panhandle."},{icon:"🌸",text:"Formal gardens feature camellias, azaleas, and Cherokee roses blooming in late winter."},{icon:"🌳",text:"Ancient live oaks with canopies spanning 100 feet shade the mansion grounds."},{icon:"🌊",text:"The park fronts Tucker Bayou, a tranquil arm of Choctawhatchee Bay."}]},
+  { id:34, lat:30.0943, lng:-84.1557, name:"Edward Ball Wakulla Springs State Park", region:"Panhandle", county:"Wakulla", emoji:"🌀", color:"#1a5c7a", fact:"One of the world's deepest and largest freshwater springs, with a cave system extending 300+ feet down.", facts:[{icon:"🦣",text:"Mastodon bones and Ice Age animal remains have been found in the spring's depths."},{icon:"🎬",text:"The 1954 'Creature from the Black Lagoon' was filmed here in the spring."},{icon:"🦢",text:"Massive flocks of American coots winter here alongside herons, anhingas, and ibis."},{icon:"🏛️",text:"The historic 1937 Wakulla Springs Lodge still operates as a state park lodge."}]},
+  { id:35, lat:28.7220, lng:-82.5960, name:"Ellie Schiller Homosassa Springs Wildlife State Park", region:"Nature Coast", county:"Citrus", emoji:"🦛", color:"#4a7fa5", fact:"A former roadside attraction best known for its resident manatees and 'Lu' the hippopotamus.", facts:[{icon:"🦛",text:"Lu the hippopotamus has lived at the park since 1964 and was granted honorary Florida citizenship."},{icon:"🦭",text:"Non-releasable manatees permanently reside in the spring run, visible from an underwater observatory."},{icon:"🐊",text:"Florida panthers, black bears, flamingos, and alligators are among the native wildlife."},{icon:"💧",text:"The Homosassa Spring is a first-magnitude spring pumping over 100 million gallons daily."}]},
+  { id:36, lat:25.8770, lng:-81.5100, name:"Fakahatchee Strand Preserve State Park", region:"South Florida", county:"Collier", emoji:"🌺", color:"#2d7a3a", fact:"Florida's 'Amazon' — the largest stand of native royal palms and greatest concentration of rare orchids in North America.", facts:[{icon:"🌸",text:"Over 44 native orchid species grow here, including the ghost orchid, the rarest in North America."},{icon:"🐆",text:"Critical habitat for the Florida panther — one of the most endangered mammals in the US."},{icon:"🌴",text:"The native royal palm grove along Jane's Scenic Drive is unlike anywhere else in the US."},{icon:"🧪",text:"Scientists from around the world visit to study the biodiversity of this unique cypress strand."}]},
+  { id:37, lat:30.7738, lng:-85.5817, name:"Falling Waters State Park", region:"Panhandle", county:"Washington", emoji:"💦", color:"#1a5c7a", fact:"Home to Florida's highest waterfall — a 73-foot cascade dropping into a cylindrical sinkhole pit.", facts:[{icon:"💦",text:"The 73-foot waterfall drops into a 100-foot-deep cylindrical sinkhole — the tallest waterfall in Florida."},{icon:"🕳️",text:"The origin of the stream that feeds the waterfall remains unknown — it disappears at the bottom."},{icon:"🌿",text:"The park sits on the red clay hills of the Panhandle, unlike the limestone karst typical elsewhere."},{icon:"🏕️",text:"A campground and swimming area make this a popular family destination."}]},
+  { id:38, lat:29.5904, lng:-82.9480, name:"Fanning Springs State Park", region:"Nature Coast", county:"Gilchrist", emoji:"💧", color:"#1a7a6a", fact:"A crystal-clear first-magnitude spring on the Suwannee River, perfect for swimming and snorkeling.", facts:[{icon:"💧",text:"The spring discharges 65 million gallons of 68°F water per day into the Suwannee River."},{icon:"🤿",text:"Crystal-clear spring run with visibility extending to the limestone bottom."},{icon:"🦭",text:"Manatees frequently move into the spring run during cold winter weather."},{icon:"🌿",text:"A nature trail winds along the Suwannee River through gorgeous river swamp."}]},
+  { id:39, lat:29.6520, lng:-82.3090, name:"Florida Caverns State Park", region:"Panhandle", county:"Jackson", emoji:"🦇", color:"#4a3030", fact:"The only Florida state park offering guided cave tours — spectacular stalactites and stalagmites.", facts:[{icon:"🦇",text:"The cave is home to southeastern myotis and tri-colored bats."},{icon:"🪨",text:"Stalactites, stalagmites, flowstone, and rimstone dams formed over millions of years."},{icon:"💧",text:"The adjacent Chipola River disappears underground at the Marianna Lowlands."},{icon:"🌿",text:"The above-ground park includes floodplain forest with excellent birding and camping."}]},
+  { id:40, lat:30.7080, lng:-81.4462, name:"Fort Clinch State Park", region:"Northeast Florida", county:"Nassau", emoji:"🏰", color:"#4a6741", fact:"A well-preserved 19th-century brick fort on Amelia Island, used in both the Civil War and Spanish-American War.", facts:[{icon:"⚔️",text:"The fort was occupied by both Confederate and Union forces during the Civil War."},{icon:"🦀",text:"One of Florida's best surfing spots sits just outside the park at Amelia Island's north end."},{icon:"🐢",text:"Critical nesting habitat for loggerhead sea turtles every summer."},{icon:"🏕️",text:"Covers over 1,400 acres of maritime forest, beaches, and salt marshes."}]},
+  { id:41, lat:28.5330, lng:-82.2430, name:"Fort Cooper State Park", region:"Nature Coast", county:"Citrus", emoji:"⚔️", color:"#7a5020", fact:"Site of a frontier fort and two Seminole War skirmishes in 1836, now offering spring swimming.", facts:[{icon:"⚔️",text:"Two significant battles between US Army troops and Seminole warriors took place here in March 1836."},{icon:"💧",text:"Lake Holathlikaha — fed by a small spring — offers unusually clear, cool swimming."},{icon:"🏛️",text:"Annual reenactments bring the Second Seminole War period to life with living history interpreters."},{icon:"🌿",text:"The trail system wanders through mixed hardwood forest with fine birding."}]},
+  { id:42, lat:30.4830, lng:-81.4270, name:"Fort George Island Cultural State Park", region:"Northeast Florida", county:"Duval", emoji:"🏡", color:"#7a5020", fact:"Florida's oldest plantation site, with layers of history spanning Native American mounds and Spanish missions.", facts:[{icon:"🏛️",text:"The Kingsley Plantation (1798) is the oldest surviving plantation complex in Florida."},{icon:"🌿",text:"Fort George Island is a sea island with rich Timucuan archaeological history."},{icon:"🛶",text:"The Saturiwa Trail circles the island through salt marsh and maritime forest."},{icon:"🦅",text:"American oystercatchers, painted buntings, and bald eagles are notable bird species here."}]},
+  { id:43, lat:29.9135, lng:-81.3093, name:"Fort Mose Historic State Park", region:"Northeast Florida", county:"St. Johns", emoji:"✊", color:"#2d2d8a", fact:"Site of the first legally sanctioned free Black community in what is now the United States, established in 1738.", facts:[{icon:"✊",text:"Fort Mose was established in 1738 by the Spanish as a militia fort manned by formerly enslaved people."},{icon:"🏛️",text:"A National Historic Landmark recognized as one of the most significant African-American heritage sites."},{icon:"🌿",text:"The original fort site is now underwater in a tidal marsh; the visitor center tells its story."},{icon:"🦅",text:"The surrounding marshlands attract an exceptional variety of wading birds and waterfowl."}]},
+  { id:44, lat:27.4597, lng:-80.3213, name:"Fort Pierce Inlet State Park", region:"Treasure Coast", county:"St. Lucie", emoji:"🌊", color:"#2d6e8a", fact:"A wave-battered rocky shoreline and one of Florida's best surfing spots at the mouth of Fort Pierce Inlet.", facts:[{icon:"🏄",text:"Fort Pierce Inlet is one of the most consistent surf breaks on Florida's East Coast."},{icon:"🪸",text:"Coquina rock outcroppings support a rich intertidal community."},{icon:"🐢",text:"Loggerhead sea turtles nest at some of the highest densities recorded in Florida."},{icon:"🦅",text:"The inlet's fish-rich waters attract ospreys, pelicans, and cormorants year-round."}]},
+  { id:45, lat:24.5487, lng:-81.8099, name:"Fort Zachary Taylor Historic State Park", region:"Florida Keys", county:"Monroe", emoji:"🏰", color:"#2d6e8a", fact:"A Civil War-era fort at the southernmost point of the continental US and Key West's best beach.", facts:[{icon:"🏰",text:"Fort Taylor was completed in 1866 and played a key role in the Union blockade of Confederate ports."},{icon:"⚓",text:"During restoration, the largest collection of Civil War cannons ever found was discovered bricked inside."},{icon:"🏖️",text:"The park's beach is widely considered the finest in Key West, with a natural reef offshore."},{icon:"🌊",text:"Snorkeling off the beach reveals elkhorn and staghorn coral along a shallow natural reef."}]},
+  { id:46, lat:30.5140, lng:-86.5680, name:"Fred Gannon Rocky Bayou State Park", region:"Panhandle", county:"Okaloosa", emoji:"🌲", color:"#4a6741", fact:"A quiet Panhandle park on Niceville Bay with excellent fishing and old-growth longleaf pine.", facts:[{icon:"🌲",text:"The park contains some of the finest remaining longleaf pine stands in the Florida Panhandle."},{icon:"🎣",text:"Rocky Bayou is excellent for fishing — redfish, flounder, and speckled trout year-round."},{icon:"🛶",text:"A canoe trail winds through the bayou's tributaries in tannin-darkened water."},{icon:"🦅",text:"Ospreys and bald eagles nest in the park's tall pines overlooking the bayou."}]},
+  { id:47, lat:29.3012, lng:-81.0570, name:"Gamble Rogers Memorial State Recreation Area", region:"Northeast Florida", county:"Flagler", emoji:"🎸", color:"#4a7fa5", fact:"A beachside park named for Florida folk singer Gamble Rogers, who drowned here saving a swimmer in 1991.", facts:[{icon:"🎸",text:"Gamble Rogers was a beloved Florida folk musician who died heroically saving a stranger."},{icon:"🌊",text:"The park sits on a barrier island offering both ocean and Intracoastal Waterway access."},{icon:"🏕️",text:"Beachside camping under palms makes this one of the most sought-after campsites on the East Coast."},{icon:"🐢",text:"Sea turtle nesting is active on the park's ocean beach throughout summer."}]},
+  { id:48, lat:26.8544, lng:-82.2753, name:"Gasparilla Island State Park", region:"Southwest Florida", county:"Lee", emoji:"⚓", color:"#c4703a", fact:"A peaceful island park with the historic Port Boca Grande Lighthouse (1890) on Charlotte Harbor.", facts:[{icon:"⚓",text:"The lighthouse sits at the entrance to Charlotte Harbor — one of Florida's most scenic passes."},{icon:"🦅",text:"The island's Gulf beaches are excellent for shell collecting, especially after cold fronts."},{icon:"🏛️",text:"The historic Port Boca Grande Lighthouse is listed on the National Register of Historic Places."},{icon:"🎣",text:"The pass at the south end is world-famous for tarpon fishing in spring and early summer."}]},
+  { id:49, lat:30.3151, lng:-86.1759, name:"Grayton Beach State Park", region:"Panhandle", county:"Walton", emoji:"🏖️", color:"#2d8aaa", fact:"Consistently ranked among America's best beaches, with iconic emerald Gulf water and sugar-white sand.", facts:[{icon:"🏖️",text:"Grayton Beach is regularly voted one of the top beaches in the United States."},{icon:"💧",text:"Western Lake — a rare coastal dune lake — sits just behind the dunes."},{icon:"🌿",text:"Coastal dune lakes like Western Lake are found in only a handful of places globally."},{icon:"🦎",text:"The endangered Gulf Coast diamondback terrapin nests along the park's brackish shoreline."}]},
+  { id:50, lat:30.3832, lng:-86.4770, name:"Henderson Beach State Park", region:"Panhandle", county:"Okaloosa", emoji:"🏖️", color:"#2d8aaa", fact:"Classic Emerald Coast beach park in Destin with pristine white sand and emerald Gulf waters.", facts:[{icon:"🏖️",text:"Classic Destin combination: brilliant white quartz sand and vivid emerald-green water."},{icon:"🐢",text:"Sea turtle nesting is monitored on the beach each summer."},{icon:"🌿",text:"Coastal scrub forest behind the dunes provides habitat for gopher tortoises."},{icon:"🌅",text:"The park offers some of the finest Gulf sunsets on the Florida Panhandle coast."}]},
+  { id:51, lat:27.4748, lng:-81.5430, name:"Highland Hammock State Park", region:"Central Florida", county:"Highlands", emoji:"🌿", color:"#2d6a2a", fact:"One of Florida's original four state parks (1938), protecting ancient cypress trees and rare Florida scrub.", facts:[{icon:"🌿",text:"One of the first four state parks opened in Florida in 1931 — a CCC project."},{icon:"🐊",text:"The park's ancient cypress swamp is one of the finest examples of this vanishing habitat."},{icon:"🌲",text:"Some of the ancient oaks and cypresses are estimated to be over 1,000 years old."},{icon:"🐎",text:"Tram tours through the hammock are offered on weekends."}]},
+  { id:52, lat:28.1430, lng:-82.2330, name:"Hillsborough River State Park", region:"Central Florida", county:"Hillsborough", emoji:"🏰", color:"#4a6741", fact:"Florida's oldest continuously operating state park (1938), featuring Class II rapids on the Hillsborough River.", facts:[{icon:"🏰",text:"The reconstructed Fort Foster is a Second Seminole War-era fort with annual living history events."},{icon:"🌊",text:"The Hillsborough River's natural Class II rapids are among the few visible rocky shoals in peninsular Florida."},{icon:"🌿",text:"Ancient live oak hammocks and cypress swamps just 30 minutes from Tampa."},{icon:"🐊",text:"Florida softshell turtles, river otters, and alligators are regularly observed along the river."}]},
+  { id:53, lat:28.9020, lng:-81.3630, name:"Hontoon Island State Park", region:"Central Florida", county:"Volusia", emoji:"🏝️", color:"#4a6741", fact:"A river island accessible only by ferry, with ancient Timucuan shell mounds and old-growth hammock.", facts:[{icon:"🏛️",text:"Timucuan shell mounds on the island date back over 2,000 years."},{icon:"🌿",text:"The island's interior is dominated by magnificent live oak hammock."},{icon:"🛶",text:"The surrounding St. Johns River offers exceptional fishing for largemouth bass."},{icon:"🦅",text:"Bald eagles nest on the island and swallow-tailed kites are seen during spring migration."}]},
+  { id:54, lat:28.0520, lng:-82.8280, name:"Honeymoon Island State Park", region:"Central West Florida", county:"Pinellas", emoji:"🌅", color:"#c4703a", fact:"One of Florida's most popular state parks, with pristine beaches and one of the Gulf Coast's largest osprey colonies.", facts:[{icon:"🦅",text:"Honeymoon Island hosts one of the largest concentrations of nesting ospreys on the US Gulf Coast."},{icon:"🌅",text:"Sunset views overlook the Gulf of Mexico and Caladesi Island in the distance."},{icon:"⛵",text:"A ferry service from the park takes visitors to the pristine Caladesi Island."},{icon:"🐚",text:"Wide Gulf-side beach with excellent shelling and swimming."}]},
+  { id:55, lat:26.1224, lng:-80.1003, name:"Hugh Taylor Birch State Park", region:"Southeast Florida", county:"Broward", emoji:"🌿", color:"#2d7a3a", fact:"An urban oasis in Fort Lauderdale protecting one of the last maritime hammocks on the southeast Florida coast.", facts:[{icon:"🌿",text:"A surprising urban refuge protecting rare maritime hammock amid dense Fort Lauderdale development."},{icon:"🏛️",text:"Named for Hugh Taylor Birch, who donated his estate to ensure it would never be developed."},{icon:"🚴",text:"A 1.7-mile bike and pedestrian path circles a lagoon through the hammock."},{icon:"🐢",text:"Gopher tortoises still live in the scrub sections — remarkable for an urban Florida park."}]},
+  { id:56, lat:29.9887, lng:-82.7637, name:"Ichetucknee Springs State Park", region:"North Central Florida", county:"Columbia/Suwannee", emoji:"🌊", color:"#1a7a6a", fact:"A spring-fed river beloved across Florida for tubing — 9 crystal-clear springs feed a 6-mile paradise.", facts:[{icon:"🌊",text:"Over 230 million gallons of 68°F water bubble up from 9 springs to form the Ichetucknee River daily."},{icon:"🛶",text:"Floating the 6-mile river on a tube is one of Florida's most iconic summer traditions."},{icon:"🐢",text:"Ichetucknee cooter turtles — endemic to this river system — live nowhere else on Earth."},{icon:"🌿",text:"The river corridor is in near-pristine condition — no development disturbs the spring run."}]},
+  { id:57, lat:24.8789, lng:-80.6637, name:"Indian Key Historic State Park", region:"Florida Keys", county:"Monroe", emoji:"🏚️", color:"#7a5020", fact:"Ruins of a once-thriving 1830s town on a tiny Keys island, destroyed in a Seminole War raid in 1840.", facts:[{icon:"⚔️",text:"Indian Key was a prosperous wrecking town before Seminoles attacked and destroyed it in August 1840."},{icon:"🌿",text:"The island is now entirely overgrown with ruins beneath dense tropical vegetation."},{icon:"⛵",text:"Only accessible by private boat or kayak — no ferry service."},{icon:"🌺",text:"Dr. Henry Perrine, a botanist growing tropical plants here, was killed in the 1840 raid."}]},
+  { id:58, lat:26.8369, lng:-80.0555, name:"John D. MacArthur Beach State Park", region:"Southeast Florida", county:"Palm Beach", emoji:"🌊", color:"#2d8aaa", fact:"One of the last undeveloped stretches of natural beach in Palm Beach County, with a pristine lagoon boardwalk.", facts:[{icon:"🌊",text:"A 1,600-foot boardwalk crosses Lake Worth Cove lagoon to reach the Atlantic beach."},{icon:"🪸",text:"A natural reef just offshore makes this one of Palm Beach County's best snorkeling spots."},{icon:"🐢",text:"Loggerhead, leatherback, and green sea turtles all nest on the park's beach each summer."},{icon:"🌿",text:"Protects one of the last examples of tropical coastal hammock in the Palm Beach area."}]},
+  { id:59, lat:29.8951, lng:-84.9991, name:"John Gorrie Museum State Park", region:"Panhandle", county:"Franklin", emoji:"❄️", color:"#2d6e8a", fact:"Museum honoring Dr. John Gorrie, the inventor of mechanical refrigeration and ice-making in 1851.", facts:[{icon:"❄️",text:"Dr. Gorrie invented the first ice-making machine in 1851 to cool fever patients — the forerunner of all air conditioning."},{icon:"🏛️",text:"His original 1851 patent model is on display — a pilgrimage site for HVAC history buffs."},{icon:"🌊",text:"Apalachicola was once the third-busiest port in the Gulf of Mexico."},{icon:"🦪",text:"The Apalachicola Bay nearby produces a significant portion of Florida's wild-caught oysters."}]},
+  { id:60, lat:25.1237, lng:-80.3022, name:"John Pennekamp Coral Reef State Park", region:"Florida Keys", county:"Monroe", emoji:"🪸", color:"#1a8080", fact:"The first underwater state park in the United States, protecting part of the only living coral reef system in the continental US.", facts:[{icon:"🪸",text:"The park protects 70 nautical square miles of coral reefs, seagrass beds, and mangrove swamps."},{icon:"⛵",text:"Glass-bottom boat tours have operated here since the park's founding in 1963."},{icon:"🐠",text:"Over 600 species of fish and 55 species of coral have been recorded in the park's waters."},{icon:"✝️",text:"The iconic 'Christ of the Abyss' bronze statue stands on the ocean floor at 25 feet."}]},
+  { id:61, lat:27.0280, lng:-80.0880, name:"Jonathan Dickinson State Park", region:"Treasure Coast", county:"Martin", emoji:"🦅", color:"#4a6741", fact:"Southeast Florida's largest state park, protecting the pristine Loxahatchee River and rare Florida scrub-jay habitat.", facts:[{icon:"🦅",text:"The largest protected area of Florida scrub-jay habitat in the southeastern United States."},{icon:"🌊",text:"The Loxahatchee River is the only federally designated Wild and Scenic River in Florida."},{icon:"🛶",text:"Boat tours up the Loxahatchee River are one of the most popular nature experiences in South Florida."},{icon:"🐊",text:"Alligators, river otters, and West Indian manatees are regularly observed."}]},
+  { id:62, lat:27.5000, lng:-81.1500, name:"Kissimmee Prairie Preserve State Park", region:"Central Florida", county:"Okeechobee", emoji:"🌾", color:"#9ab08d", fact:"Florida's largest dry prairie — one of the rarest and most threatened ecosystems in the world.", facts:[{icon:"🌾",text:"54,000 acres of dry prairie — a globally rare ecosystem nearly eliminated from Florida."},{icon:"🦅",text:"Florida grasshopper sparrows and crested caracaras nest in the prairie."},{icon:"⭐",text:"Remote location and no light pollution make this one of the top stargazing spots in the Southeast."},{icon:"🐎",text:"Horseback riding is permitted on over 100 miles of trails."}]},
+  { id:63, lat:26.4380, lng:-81.8520, name:"Koreshan State Park", region:"Southwest Florida", county:"Lee", emoji:"🔭", color:"#4a6741", fact:"Historic site of the Koreshan Unity — a utopian settlement founded on the belief humans live inside a hollow Earth.", facts:[{icon:"🔭",text:"Cyrus Teed founded the Koreshan Unity here in 1894, believing the universe exists inside a hollow sphere."},{icon:"🌿",text:"The group planted extensive gardens and built 10 structures, several still standing."},{icon:"🛶",text:"The Estero River is one of Southwest Florida's most scenic paddle routes."},{icon:"🦋",text:"The historic gardens attract an extraordinary number of butterflies and native pollinators."}]},
+  { id:64, lat:29.9990, lng:-83.1950, name:"Lafayette Blue Springs State Park", region:"North Florida", county:"Lafayette", emoji:"💧", color:"#1a7a6a", fact:"A pristine, remote first-magnitude spring on the Suwannee River with crystal-clear water.", facts:[{icon:"💧",text:"Lafayette Blue Spring — visibility often exceeds 150 feet, one of Florida's clearest springs."},{icon:"🦭",text:"Manatees regularly use the spring as a warm-water refuge during winter cold spells."},{icon:"🤿",text:"Snorkeling and cave diving attract enthusiasts from across the country."},{icon:"🌿",text:"The surrounding floodplain forest along the Suwannee River is near-pristine."}]},
+  { id:65, lat:28.9590, lng:-81.9090, name:"Lake Griffin State Park", region:"Central Florida", county:"Lake", emoji:"🐦", color:"#4a7fa5", fact:"A park centered on Lake Griffin, one of the most productive bass fishing lakes in Florida.", facts:[{icon:"🎣",text:"Lake Griffin is part of the Ocklawaha chain of lakes, known for trophy largemouth bass."},{icon:"🐦",text:"The largest colony of American anhingas in Florida historically nested in the park's cypress trees."},{icon:"🌿",text:"Ancient live oak hammock along the lake shore shelters one of Florida's largest live oaks."},{icon:"🛶",text:"Canoe and kayak rentals available on the scenic cypress-and-lily-pad lake."}]},
+  { id:66, lat:27.3450, lng:-81.3850, name:"Lake Kissimmee State Park", region:"Central Florida", county:"Polk", emoji:"🐄", color:"#6b7a2a", fact:"A living history 1876 cow camp and one of Central Florida's most important wildlife preserves.", facts:[{icon:"🐄",text:"The Cow Camp living history program recreates the life of Florida 'Cow Hunters.'"},{icon:"🦅",text:"One of the best places to see bald eagles, sandhill cranes, and Florida crested caracaras."},{icon:"🌾",text:"Dry prairie habitat supports many of Florida's rarest grassland birds."},{icon:"🛶",text:"Three large lakes — Kissimmee, Tiger, and Rosalie — offer excellent fishing and paddling."}]},
+  { id:67, lat:28.3930, lng:-81.7380, name:"Lake Louisa State Park", region:"Central Florida", county:"Lake", emoji:"🌊", color:"#4a7fa5", fact:"A chain of 13 spring-fed lakes in the heart of the Green Swamp with excellent paddling and fishing.", facts:[{icon:"🌊",text:"Encompasses 13 spring-fed lakes connected by the Palatlakaha River in the Green Swamp watershed."},{icon:"🛶",text:"Paddling between the lakes through cypress swamps is one of Central Florida's most rewarding water trails."},{icon:"🐎",text:"Extensive equestrian trail system loops through the park's flatwoods and scrub."},{icon:"🌿",text:"The park lies within the Green Swamp, a critical water recharge area for Central Florida."}]},
+  { id:68, lat:27.4630, lng:-82.5040, name:"Lake Manatee State Park", region:"Central West Florida", county:"Manatee", emoji:"🦭", color:"#2d6e8a", fact:"A peaceful park along the Manatee River with swimming, boating, and excellent fishing.", facts:[{icon:"🦭",text:"West Indian manatees are frequently observed in the Manatee River adjacent to the park."},{icon:"🎣",text:"The park offers boat ramp access to Lake Manatee and the upper Manatee River."},{icon:"🌿",text:"A nature trail winds through sandhill habitat with gopher tortoises and longleaf pine."},{icon:"🏊",text:"One of the last natural river swimming spots near Tampa."}]},
+  { id:69, lat:30.4280, lng:-84.6730, name:"Lake Talquin State Park", region:"Panhandle", county:"Gadsden/Leon", emoji:"🎣", color:"#4a6741", fact:"A beloved Panhandle fishing destination on Lake Talquin, created by damming the Ochlockonee River in 1928.", facts:[{icon:"🎣",text:"Lake Talquin is a premier destination for largemouth bass, crappie, and catfish."},{icon:"🌿",text:"Ancient bluffs along the Ochlockonee River support rare mesic slope forest communities."},{icon:"🦅",text:"Bald eagles nest in the park's tall pines and commonly seen hunting over the lake."},{icon:"🛶",text:"Flatwoods and creek paddling are popular with locals seeking a quiet getaway."}]},
+  { id:70, lat:29.1180, lng:-82.0740, name:"Marjorie Kinnan Rawlings Historic State Park", region:"North Central Florida", county:"Alachua", emoji:"📚", color:"#7a5020", fact:"The preserved 1930s farmstead where Pulitzer Prize winner Marjorie Kinnan Rawlings wrote 'The Yearling.'", facts:[{icon:"📚",text:"Rawlings wrote her Pulitzer Prize-winning novel 'The Yearling' at this rural homestead in Cross Creek."},{icon:"🏡",text:"The cracker-style farmhouse is furnished as it was in Rawlings' time, with her typewriter on the desk."},{icon:"🌿",text:"Surrounding citrus groves, barn, and chicken yard give a sense of 1930s Florida farm life."},{icon:"🦩",text:"Sandhill cranes, herons, and limpkins inhabit the adjacent wetlands."}]},
+  { id:71, lat:29.8680, lng:-81.9640, name:"Mike Roess Gold Head Branch State Park", region:"Northeast Florida", county:"Clay", emoji:"🌊", color:"#4a6741", fact:"A picturesque spring-fed ravine and lake in the rolling hills of Clay County.", facts:[{icon:"🌊",text:"Gold Head Branch is a small stream fed by seeps that carved a distinctive ravine through red clay hills."},{icon:"🌿",text:"The ravine supports plant species unusual for Florida, typical of more northern states."},{icon:"🏛️",text:"CCC-built structures from the 1930s including the historic lodge and cabins are still in use."},{icon:"🎣",text:"Lake Johnson and Lake Sheeler offer fishing for largemouth bass and chain pickerel."}]},
+  { id:72, lat:26.3210, lng:-81.7190, name:"Mound Key Archaeological State Park", region:"Southwest Florida", county:"Lee", emoji:"🏛️", color:"#7a5020", fact:"A shell mound island accessible only by water — the likely site of the Calusa Indian capital Calos.", facts:[{icon:"🏛️",text:"The island's massive shell mounds are the largest human-made shell mounds in the US."},{icon:"⛵",text:"Only accessible by paddling or boating through Estero Bay Aquatic Preserve."},{icon:"🐚",text:"The Calusa people built this island entirely from shell refuse over 2,000 years of habitation."},{icon:"🌿",text:"Mangroves and tropical hammock now cover the mounds in a mysterious landscape."}]},
+  { id:73, lat:27.3928, lng:-82.4477, name:"Myakka River State Park", region:"Southwest Florida", county:"Sarasota", emoji:"🐊", color:"#6b7a2a", fact:"One of Florida's oldest and largest state parks — 37,000 acres of prairies, hammocks, and wetlands.", facts:[{icon:"🐊",text:"Hosts one of the densest concentrations of American alligators anywhere in the United States."},{icon:"🌿",text:"The upper Myakka canopy walkway at 25 feet high is one of the first canopy walks in the nation."},{icon:"🦅",text:"Over 200 bird species recorded, making it one of Florida's top birding destinations."},{icon:"🌾",text:"Dry prairie habitat supports sandhill cranes and crested caracaras."}]},
+  { id:74, lat:30.3230, lng:-84.2340, name:"Natural Bridge Battlefield Historic State Park", region:"Panhandle", county:"Leon", emoji:"⚔️", color:"#7a5020", fact:"Site of the last significant Confederate victory east of the Mississippi River on March 6, 1865.", facts:[{icon:"⚔️",text:"Confederate forces including teenage cadets repelled a Union attack here."},{icon:"🌊",text:"The St. Marks River disappears underground and reappears at a 'natural bridge' — the battle's namesake."},{icon:"🏛️",text:"Annual reenactments each March draw large crowds."},{icon:"🌿",text:"The park's river hammock is lush with magnolias, beeches, and rare limestone-associated plants."}]},
+  { id:75, lat:28.9700, lng:-82.1260, name:"Ocala National Forest (Salt Springs Unit)", region:"North Central Florida", county:"Marion", emoji:"🌲", color:"#3d6632", fact:"The southernmost national forest in the US and home to the world's largest longleaf pine scrub.", facts:[{icon:"🏊",text:"Juniper, Alexander, and Salt Springs offer some of the finest natural swimming in Florida."},{icon:"🦌",text:"The largest population of Florida black bears in the state lives within the forest."},{icon:"🌵",text:"Florida scrub-jays — found nowhere else on Earth — nest in the scrub habitat."},{icon:"🛤️",text:"Over 600 miles of trails including a major section of the Florida Trail."}]},
+  { id:76, lat:28.8960, lng:-82.1530, name:"Rainbow Springs State Park", region:"Nature Coast", county:"Marion", emoji:"🌈", color:"#1a7a6a", fact:"A breathtaking first-magnitude spring with tubing, snorkeling, and a historic 1930s botanical garden.", facts:[{icon:"🌈",text:"Rainbow Springs ranks among the four largest springs in Florida, pumping 400–600 million gallons daily."},{icon:"🏡",text:"Waterfalls, exotic plant gardens, and cabins were part of a mid-20th century tourist attraction."},{icon:"🤿",text:"Visibility in the spring run often exceeds 100 feet — one of the clearest waters in the Americas."},{icon:"🦭",text:"Manatees and Florida spotted gar are commonly observed in the crystalline run."}]},
+  { id:77, lat:29.6448, lng:-81.6327, name:"Ravine Gardens State Park", region:"Northeast Florida", county:"Putnam", emoji:"🌸", color:"#7a4a8a", fact:"A breathtaking natural ravine carved by ancient springs, filled with thousands of azaleas blooming each spring.", facts:[{icon:"🌸",text:"Over 100,000 azalea plants line the ravine slopes, drawing crowds during the annual Azalea Festival."},{icon:"💧",text:"Twin ravines carved by spring-fed streams cutting 120 feet deep into the Florida plateau."},{icon:"🏛️",text:"Built by the Civilian Conservation Corps (CCC) in the 1930s as a Great Depression relief project."},{icon:"🌿",text:"A suspension bridge spans the ravine with a dramatic view of the fern-covered slopes below."}]},
+  { id:78, lat:28.7350, lng:-81.4270, name:"Rock Springs Run State Reserve", region:"Central Florida", county:"Orange/Lake", emoji:"🏞️", color:"#1a7a6a", fact:"Protects the pristine headwaters of Rock Springs Run, one of Florida's finest tubing and kayaking rivers.", facts:[{icon:"🏞️",text:"Rock Springs Run is a tributary of the Wekiva River — both flow through protected land."},{icon:"🤿",text:"Crystal-clear spring water supports excellent snorkeling, with manatees visiting in winter."},{icon:"🌿",text:"Over 13,000 acres of longleaf pine, scrub, and swamp forest."},{icon:"🦅",text:"Swallow-tailed kites, bald eagles, and sandhill cranes all nest within the reserve."}]},
+  { id:79, lat:30.5270, lng:-86.4070, name:"Rocky Bayou State Park", region:"Panhandle", county:"Okaloosa", emoji:"🌲", color:"#4a6741", fact:"A quiet Panhandle park on Rocky Bayou with excellent fishing, swimming, and longleaf pine scenery.", facts:[{icon:"🌲",text:"The park contains beautiful longleaf pine flatwoods with native wiregrass."},{icon:"🎣",text:"Rocky Bayou offers excellent fishing for flounder, redfish, and speckled trout year-round."},{icon:"🏊",text:"A freshwater swimming area provides a refreshing alternative to Gulf beach crowds."},{icon:"🛶",text:"Kayakers and canoeists explore the bayou's tributary creeks."}]},
+  { id:80, lat:27.3400, lng:-80.3580, name:"Savannas Preserve State Park", region:"Treasure Coast", county:"St. Lucie/Martin/Indian River", emoji:"🌾", color:"#9ab08d", fact:"Protects the largest freshwater coastal savanna in the US between the Atlantic and the mainland.", facts:[{icon:"🌾",text:"The largest freshwater coastal savanna ecosystem in the contiguous United States."},{icon:"🦋",text:"The rare Atala butterfly, once thought extinct, has been successfully reintroduced."},{icon:"🌿",text:"Pitcher plants, sundews, and carnivorous plants thrive in the nutrient-poor wet savannas."},{icon:"🦩",text:"Roseate spoonbills, white ibis, and wood storks forage in the shallow savanna wetlands."}]},
+  { id:81, lat:27.8621, lng:-80.4486, name:"Sebastian Inlet State Park", region:"Treasure Coast", county:"Indian River/Brevard", emoji:"🏄", color:"#2d6e8a", fact:"One of Florida's most popular surf spots and where legendary surfers Kelly Slater and the Hobgood twins learned to surf.", facts:[{icon:"🏄",text:"Sebastian Inlet is the birthplace of professional surfers Kelly Slater, CJ and Damien Hobgood."},{icon:"🐟",text:"Consistently rated the top surf fishing spot in the Southeast for large redfish and bluefish."},{icon:"🏛️",text:"The McLarty Treasure Museum tells the story of the 1715 Spanish treasure fleet wrecked nearby."},{icon:"🐢",text:"The park has one of the highest documented sea turtle nesting densities in Florida."}]},
+  { id:82, lat:29.2010, lng:-82.0530, name:"Silver River State Park", region:"North Central Florida", county:"Marion", emoji:"🐒", color:"#1a7a6a", fact:"Florida's clearest river, home to wild rhesus monkeys brought for a 1930s Tarzan movie that never left.", facts:[{icon:"🐒",text:"A colony of wild rhesus macaques has lived along the Silver River since escaping a Tarzan movie set in 1938."},{icon:"💧",text:"The Silver River carries 550 million gallons of crystal-clear 72°F spring water daily."},{icon:"🎬",text:"Multiple Tarzan films, James Bond movies, and TV shows were filmed in these waters."},{icon:"🌿",text:"The park museum tells the story of the Silver River's remarkable natural and human history."}]},
+  { id:83, lat:29.2185, lng:-82.0565, name:"Silver Springs State Park", region:"North Central Florida", county:"Marion", emoji:"🐟", color:"#1a7a6a", fact:"The world's largest artesian spring formation — legendary glass-bottom boats have operated here since 1878.", facts:[{icon:"🎬",text:"Scenes from 6 Tarzan films, multiple James Bond movies, and many TV shows were filmed here."},{icon:"🐒",text:"Wild rhesus macaques live in the park — descendants of monkeys from a 1938 Tarzan movie."},{icon:"💧",text:"Over 550 million gallons of crystal-clear 72°F water bubble up from the aquifer daily."},{icon:"🏆",text:"Listed as a National Natural Landmark and historically the most-visited spring in the world."}]},
+  { id:84, lat:30.0659, lng:-85.7143, name:"St. Andrews State Park", region:"Panhandle", county:"Bay", emoji:"⚓", color:"#2d8aaa", fact:"Classic Emerald Coast beach park in Panama City Beach with some of the Panhandle's finest Gulf waters.", facts:[{icon:"⚓",text:"The park occupies a peninsula at the entrance to St. Andrews Bay — historically strategic."},{icon:"🏖️",text:"White quartz sand and emerald water beaches ranked among the best in the US."},{icon:"🦈",text:"A small jetty at the inlet offers snorkeling over limestone ledges teeming with reef fish."},{icon:"🐢",text:"Sea turtle nesting is monitored throughout the summer."}]},
+  { id:85, lat:29.6640, lng:-85.4030, name:"St. Joseph Peninsula State Park", region:"Panhandle", county:"Gulf", emoji:"🦅", color:"#2d8aaa", fact:"A remote sand spit jutting into the Gulf — one of Florida's wildest beaches and a world-class raptor migration point.", facts:[{icon:"🦅",text:"Up to 100,000 raptors including thousands of peregrine falcons funnel down this peninsula each fall."},{icon:"🏖️",text:"The tip of the peninsula has miles of white sand beaches with no roads or development."},{icon:"🐢",text:"Loggerhead sea turtle nesting density is among the highest in the Florida Panhandle."},{icon:"⛺",text:"Primitive tent camping at the tip offers one of Florida's wildest camping experiences."}]},
+  { id:86, lat:27.1945, lng:-80.1643, name:"St. Lucie Inlet Preserve State Park", region:"Treasure Coast", county:"Martin", emoji:"🌊", color:"#2d6e8a", fact:"An undeveloped barrier island accessible only by boat, with coral outcroppings and excellent snorkeling.", facts:[{icon:"🪸",text:"Caloosa Cove reef is one of the northernmost living coral communities on the US East Coast."},{icon:"⛵",text:"Only accessible by private boat — no ferry or bridge — pristine and uncrowded."},{icon:"🐢",text:"One of the highest documented loggerhead sea turtle nesting densities in the state."},{icon:"🌿",text:"Rare coastal strand and hammock habitat with gopher tortoises."}]},
+  { id:87, lat:30.0753, lng:-84.1790, name:"St. Marks National Wildlife Refuge", region:"Panhandle", county:"Wakulla", emoji:"🦢", color:"#2d6e8a", fact:"One of the oldest refuges in the US, established in 1931, protecting critical Gulf Coast wetlands.", facts:[{icon:"🦋",text:"An important waypoint on the monarch butterfly migration — thousands pass through in fall."},{icon:"🏛️",text:"The historic St. Marks Lighthouse (1831) still stands inside the refuge."},{icon:"🦅",text:"Over 300 bird species have been recorded here — a world-class birding destination."},{icon:"🐊",text:"One of the few places in Florida where you can see both alligators and American crocodiles."}]},
+  { id:88, lat:27.7891, lng:-80.4635, name:"Sebastian Inlet (north unit)", region:"Treasure Coast", county:"Brevard", emoji:"🌊", color:"#2d6e8a", fact:"The north unit of Sebastian Inlet State Park with beach access and Archie Carr sea turtle nesting beaches.", facts:[{icon:"🐢",text:"This stretch of beach has some of the highest sea turtle nesting densities in the Western Hemisphere."},{icon:"🌊",text:"Atlantic waves break over natural coquina ledges creating excellent surfing conditions."},{icon:"🌿",text:"Coastal scrub behind the beach harbors gopher tortoises and native dune plants."},{icon:"🦅",text:"Peregrine falcons and merlins hunt along the shoreline during fall migration."}]},
+  { id:89, lat:30.4760, lng:-84.2240, name:"Tallahassee-St. Marks Historic Railroad State Trail", region:"Panhandle", county:"Leon/Wakulla", emoji:"🚂", color:"#4a6741", fact:"Florida's first rail-trail, following the 1837 Tallahassee-to-St. Marks railroad corridor.", facts:[{icon:"🚂",text:"The railroad was built in 1837 to carry cotton from Tallahassee's plantations to St. Marks."},{icon:"🚴",text:"The 20-mile paved trail is popular for cycling, running, and inline skating."},{icon:"🌿",text:"The trail corridor passes through beautiful longleaf pine flatwoods and titi swamps."},{icon:"🐦",text:"Red-cockaded woodpeckers — federally endangered — nest in old-growth pines along the trail."}]},
+  { id:90, lat:30.3764, lng:-86.2326, name:"Topsail Hill Preserve State Park", region:"Panhandle", county:"Walton", emoji:"🏖️", color:"#2d8aaa", fact:"Three pristine coastal dune lakes and 3.2 miles of undeveloped Emerald Coast beach — one of Florida's most spectacular parks.", facts:[{icon:"🌊",text:"Protects three of Florida's rare coastal dune lakes — a globally unique ecosystem."},{icon:"🏖️",text:"The beach is accessed by tram through the dunes — no roads touch the shoreline."},{icon:"🌿",text:"Towering sand dunes up to 25 feet tall line the coast, formed by Gulf winds over thousands of years."},{icon:"🐢",text:"The undisturbed beach supports significant loggerhead sea turtle nesting."}]},
+  { id:91, lat:29.0851, lng:-81.0520, name:"Tomoka State Park", region:"Northeast Florida", county:"Volusia", emoji:"🌿", color:"#4a6741", fact:"An ancient Timucuan village site on the beautiful Tomoka River, with Spanish moss hammocks and exceptional kayaking.", facts:[{icon:"🏛️",text:"The Timucuan village of Nocoroco stood here, visited by Spanish explorers as early as 1605."},{icon:"🛶",text:"The Tomoka River is one of Florida's finest paddling streams through ancient cypress and hammock."},{icon:"🌿",text:"A statue of Chief Tomokie marks the park — a monument to the Timucuan people."},{icon:"🦅",text:"Bald eagles nest in the park, and roseate spoonbills forage in the tidal marsh."}]},
+  { id:92, lat:27.5400, lng:-82.4560, name:"Wekiwa Springs State Park", region:"Central Florida", county:"Orange/Seminole", emoji:"💧", color:"#1a7a6a", fact:"A crystal-clear spring and Wild and Scenic river corridor just 20 minutes from downtown Orlando.", facts:[{icon:"💧",text:"Wekiwa Spring forms the headwaters of the Wekiva River, a federally designated Wild and Scenic River."},{icon:"🌿",text:"Part of the Wekiva-Ocala Greenway, a vital wildlife corridor to Ocala National Forest."},{icon:"🤿",text:"The spring head is a popular swimming hole with crystal-clear 68°F water."},{icon:"🐊",text:"Florida black bears, river otters, and alligators all inhabit the park and its wildlife corridor."}]},
+  { id:93, lat:28.5800, lng:-82.6460, name:"Werner-Boyce Salt Springs State Park", region:"Nature Coast", county:"Pasco", emoji:"💧", color:"#2d6e8a", fact:"A unique first-magnitude spring where fresh and salt water mix, creating a one-of-a-kind habitat.", facts:[{icon:"💧",text:"Salt Springs is unusual — a first-magnitude spring where fresh spring water mixes with rising salt water."},{icon:"🐟",text:"The unique salt-fresh mix supports both freshwater and saltwater fish in the same spring pool."},{icon:"🌿",text:"Surrounding tidal marsh and estuary protect critical spawning habitat for Gulf Coast gamefish."},{icon:"🛶",text:"A water trail through the estuary to the Gulf is one of the least-known best paddles on the Nature Coast."}]},
+  { id:94, lat:24.9380, lng:-80.6049, name:"Windley Key Fossil Reef Geological State Park", region:"Florida Keys", county:"Monroe", emoji:"🪸", color:"#2d6e8a", fact:"A former quarry revealing 125,000-year-old fossil coral reef in ancient exposed limestone cuts.", facts:[{icon:"🪸",text:"Exposed quarry walls show beautiful cross-sections of the Key Largo Limestone — a fossilized coral reef."},{icon:"🚂",text:"The quarry was mined in the early 1900s to provide building material for Flagler's Overseas Railroad."},{icon:"🌿",text:"Tropical hammock has grown over the old quarry walls, creating a striking natural-industrial landscape."},{icon:"🔬",text:"A National Natural Landmark and world-class outdoor geology classroom."}]},
+  { id:95, lat:29.3560, lng:-82.9680, name:"Withlacoochee Gulf Preserve", region:"Nature Coast", county:"Citrus/Hernando", emoji:"🌊", color:"#2d6e8a", fact:"A remote coastal preserve protecting salt marsh and tidal creeks where the Withlacoochee meets the Gulf.", facts:[{icon:"🌊",text:"Protects the estuary where the Withlacoochee River flows into the Gulf of Mexico."},{icon:"🦩",text:"One of the most productive wading bird foraging areas on Florida's entire Nature Coast."},{icon:"🎣",text:"Tidal creeks and grass flats support excellent fishing for redfish and speckled trout."},{icon:"🐊",text:"American alligators and crocodiles are both found in the preserve's brackish estuary."}]},
+  { id:96, lat:29.7690, lng:-82.4700, name:"Ybor City Museum State Park", region:"Central West Florida", county:"Hillsborough", emoji:"🏛️", color:"#7a5020", fact:"Preserves the history of Tampa's neighborhood that was once the 'Cigar Capital of the World.'", facts:[{icon:"🚬",text:"At its peak, Ybor City's factories produced over 500 million hand-rolled cigars per year."},{icon:"🌍",text:"Cuban, Spanish, and Italian immigrants built Ybor City's unique multi-ethnic community in the late 1800s."},{icon:"🏛️",text:"The museum occupies a restored 1923 bakery building surrounded by restored workers' casitas."},{icon:"🎭",text:"José Martí, Cuba's independence hero, organized Cuban exiles here during multiple visits."}]},
+  { id:97, lat:28.8470, lng:-82.5800, name:"Yulee Sugar Mill Ruins Historic State Park", region:"Nature Coast", county:"Citrus", emoji:"⚙️", color:"#7a5020", fact:"Remarkably preserved ruins of an 1851 sugar mill built by Florida's first US Senator, David Levy Yulee.", facts:[{icon:"⚙️",text:"The massive iron gears and boilers of the 1851 mill are still largely intact."},{icon:"🏛️",text:"David Levy Yulee, Florida's first US Senator, built the mill on a 5,100-acre plantation."},{icon:"⚔️",text:"Union cavalry raided and burned the mill in 1864 — it was never rebuilt."},{icon:"🌿",text:"Ancient live oaks now grow through and around the ruins."}]},
+  { id:98, lat:27.9881, lng:-80.5404, name:"Archie Carr NWR / Brevard Sea Turtle Beach", region:"Central East Florida", county:"Brevard/Indian River", emoji:"🐢", color:"#2d7a3a", fact:"The most important sea turtle nesting beach in the Western Hemisphere.", facts:[{icon:"🐢",text:"The largest concentration of loggerhead sea turtle nesting in the Western Hemisphere."},{icon:"🌊",text:"Over 15,000 sea turtle nests are recorded here in peak years."},{icon:"🌿",text:"Flanked by Indian River Lagoon — one of the most biodiverse estuaries in North America."},{icon:"🔬",text:"Sea turtle research conducted here has shaped global conservation policy for 40+ years."}]},
+  { id:99, lat:28.4300, lng:-80.6030, name:"Canaveral National Seashore", region:"Central East Florida", county:"Brevard/Volusia", emoji:"🚀", color:"#2d6e8a", fact:"The longest stretch of undeveloped Atlantic beach in Florida, adjacent to Kennedy Space Center.", facts:[{icon:"🚀",text:"The seashore and Kennedy Space Center sit side by side — rocket launches are visible from the beach."},{icon:"🐢",text:"Playalinda Beach is one of the premier sea turtle nesting beaches on the East Coast."},{icon:"🌿",text:"Mosquito Lagoon is one of Florida's most productive Indian River Lagoon segments."},{icon:"🏛️",text:"Ancient Timucuan shell middens and mounds are preserved along the lagoon's western shore."}]},
+  { id:100, lat:24.6270, lng:-82.8726, name:"Dry Tortugas National Park", region:"Florida Keys", county:"Monroe", emoji:"🏰", color:"#2d8aaa", fact:"A remote island fortress 70 miles west of Key West — accessible only by boat or seaplane.", facts:[{icon:"🏰",text:"Fort Jefferson, the largest masonry structure in the Americas, is still largely intact."},{icon:"🐠",text:"The surrounding reefs are among the most pristine in the Atlantic — excellent snorkeling."},{icon:"🦅",text:"The park hosts the largest sooty tern colony in North America — over 100,000 birds each spring."},{icon:"⛵",text:"Accessible only by ferry or seaplane from Key West — a truly remote experience."}]},
+  { id:101, lat:28.9450, lng:-82.3210, name:"Manatee Springs State Park", region:"North Florida", county:"Gilchrist", emoji:"🦭", color:"#3a8070", fact:"Crystal-clear first-magnitude spring pumping 117 million gallons daily into the Suwannee River.", facts:[{icon:"🌡️",text:"Spring water stays at a constant 68°F, attracting West Indian manatees in winter."},{icon:"🤿",text:"One of Florida's premier scuba diving sites with visibility exceeding 100 feet."},{icon:"🌿",text:"A magnificent bald cypress boardwalk winds through ancient swamp to the spring head."},{icon:"🦅",text:"Osprey and limpkin are frequently spotted hunting along the Suwannee River here."}]},
+  { id:102, lat:29.6630, lng:-85.3840, name:"Dr. Julian G. Bruce St. George Island State Park", region:"Panhandle", county:"Franklin", emoji:"🦅", color:"#e8c870", fact:"Nine miles of undeveloped beach on one of Florida's last wild barrier islands, with exceptional birding.", facts:[{icon:"🦅",text:"A premier birding site for fall migration — sharp-shinned hawks, merlins, and peregrine falcons funnel through."},{icon:"🐚",text:"Among the best shelling spots in the Florida Panhandle, especially after winter storms."},{icon:"🏕️",text:"Primitive camping on the undeveloped eastern end offers one of Florida's most remote beach experiences."},{icon:"🐢",text:"Loggerhead sea turtles nest on the park's beaches each summer."}]},
+  { id:103, lat:27.5260, lng:-81.7650, name:"Paynes Creek Historic State Park", region:"Central Florida", county:"Hardee", emoji:"⚔️", color:"#7a5020", fact:"Site of an 1849 Seminole War-era trading post massacre that triggered the Third Seminole War.", facts:[{icon:"⚔️",text:"Two Indian agent traders were killed at the trading post here in April 1849, triggering the Third Seminole War."},{icon:"🌊",text:"Paynes Creek flows through a beautiful river hammock into the Peace River."},{icon:"🌿",text:"Floodplain forest along the creek is rich in magnolia, laurel oak, and swamp tupelo."},{icon:"🐢",text:"American alligators and Florida softshell turtles are abundant along the creek."}]},
+  { id:104, lat:29.5830, lng:-82.9870, name:"Paynes Prairie Preserve State Park", region:"North Central Florida", county:"Alachua", emoji:"🦬", color:"#6b7a2a", fact:"A vast wet prairie basin where wild bison and horses roam — Florida's original 'cattle country.'", facts:[{icon:"🦬",text:"A herd of American bison and a band of wild Spanish horses roam freely on the prairie."},{icon:"🦩",text:"One of the most important sandhill crane wintering grounds in eastern North America."},{icon:"🐊",text:"Thousands of American alligators inhabit the prairie — one of the densest populations in the state."},{icon:"🏛️",text:"The basin was once a vast lake that drained overnight in 1891 when a sinkhole opened."}]},
+  { id:105, lat:30.7340, lng:-85.9270, name:"Ponce De Leon Springs State Park", region:"Panhandle", county:"Holmes", emoji:"💧", color:"#1a7a6a", fact:"Two crystal-clear spring pools in Holmes County, among Florida's most pristine swimming holes.", facts:[{icon:"💧",text:"Two springs pump 14 million gallons of 68°F water per day."},{icon:"🤿",text:"The clear water and sandy spring floors make this an ideal swimming and snorkeling spot."},{icon:"🌿",text:"A short nature trail through floodplain forest connects the two spring pools."},{icon:"🦅",text:"Barred owls, pileated woodpeckers, and wood ducks inhabit the surrounding river swamp."}]},
+  { id:106, lat:27.2860, lng:-82.4350, name:"Oscar Scherer State Park", region:"Southwest Florida", county:"Sarasota", emoji:"🦜", color:"#4a6741", fact:"One of the most important Florida scrub-jay refuges in the state, minutes from Sarasota.", facts:[{icon:"🦜",text:"One of the most significant and closely monitored Florida scrub-jay populations in the US."},{icon:"🌊",text:"South Creek provides a paddling trail through tidal salt marsh to Roberts Bay."},{icon:"🌿",text:"Prescribed burns actively maintain the scrub habitat the scrub-jay requires."},{icon:"🎣",text:"The creek's tidal reaches offer good fishing for snook, redfish, and mangrove snapper."}]},
+  { id:107, lat:27.5100, lng:-81.4750, name:"Highlands Hammock State Park", region:"Central Florida", county:"Highlands", emoji:"🌿", color:"#2d6a2a", fact:"One of Florida's original four state parks (1931), protecting ancient cypress trees and rare Florida scrub.", facts:[{icon:"🌿",text:"One of the first four state parks opened in Florida in 1931 — a CCC project."},{icon:"🐊",text:"The park's ancient cypress swamp is one of the finest examples of this vanishing habitat."},{icon:"🌲",text:"Some of the ancient oaks and cypresses are estimated to be over 1,000 years old."},{icon:"🐎",text:"Tram tours through the hammock are offered on weekends."}]},
+  { id:108, lat:29.6430, lng:-84.3730, name:"Ochlockonee River State Park", region:"Panhandle", county:"Wakulla", emoji:"🛶", color:"#4a6741", fact:"Where the Ochlockonee River meets the Gulf, excellent for fishing and paddling through coastal pine flatwoods.", facts:[{icon:"🎣",text:"The Ochlockonee River and tidal reaches offer exceptional fishing for redfish and speckled trout."},{icon:"🛶",text:"Canoe trails wind through the river and backwater sloughs through flatwood scenery."},{icon:"🦅",text:"Bald eagle pairs nest in the park's tall longleaf pines overlooking the river."},{icon:"🌿",text:"The park preserves excellent Gulf coastal flatwoods — longleaf pine and wiregrass ecosystem."}]},
+  { id:109, lat:25.9140, lng:-80.1524, name:"Oleta River State Park", region:"Southeast Florida", county:"Miami-Dade", emoji:"🚴", color:"#2d7a3a", fact:"The largest urban park in Florida, with mountain biking, paddling, and Miami's largest mangrove canopy.", facts:[{icon:"🚴",text:"Over 10 miles of mountain bike trails — one of South Florida's most popular off-road cycling destinations."},{icon:"🛶",text:"A canoe and kayak launch accesses Oleta River and Biscayne Bay through the mangrove tunnel."},{icon:"🌿",text:"Protects the largest stand of mangrove forest remaining in Miami-Dade County."},{icon:"🏖️",text:"A small Biscayne Bay beach offers swimming right in the heart of Miami."}]},
+  { id:110, lat:30.2218, lng:-82.4328, name:"Olustee Battlefield Historic State Park", region:"North Central Florida", county:"Baker", emoji:"⚔️", color:"#7a5020", fact:"Site of the largest Civil War battle fought in Florida on February 20, 1864.", facts:[{icon:"⚔️",text:"Confederate forces defeated Union troops here, preventing a Union takeover of Florida."},{icon:"📜",text:"Three US Colored Troops regiments fought at Olustee."},{icon:"🌲",text:"Sits within the Osceola National Forest, surrounded by longleaf pine flatwoods."},{icon:"🎖️",text:"Annual reenactment each February is one of the largest Civil War reenactments in the Southeast."}]},
+  { id:111, lat:28.5800, lng:-82.5700, name:"Little Manatee River State Park", region:"Central West Florida", county:"Hillsborough", emoji:"🛶", color:"#4a6741", fact:"One of Tampa Bay's finest paddling destinations along the blackwater Little Manatee River.", facts:[{icon:"🛶",text:"The 5.7-mile canoe trail winds through pristine swamp and hammock."},{icon:"🌿",text:"The river corridor is remarkably pristine given its proximity to the Tampa Bay metro area."},{icon:"🐎",text:"Equestrian trails loop through pine flatwoods — a popular horse camping spot."},{icon:"🦦",text:"River otters, alligators, and softshell turtles are commonly spotted from the water trail."}]},
+  { id:112, lat:30.5180, lng:-81.5040, name:"Little Talbot Island State Park", region:"Northeast Florida", county:"Nassau/Duval", emoji:"🏄", color:"#6b8f5e", fact:"Five miles of undeveloped Atlantic beach with coastal dunes, tidal creeks, and rich wildlife.", facts:[{icon:"🌊",text:"Pristine Atlantic beach and interior tidal marshes connected by nature trails."},{icon:"🦊",text:"River otters and gopher tortoises are commonly spotted on the hiking trails."},{icon:"🌅",text:"Stunning sunrise views directly over the Atlantic Ocean."},{icon:"🏕️",text:"Limited campsite availability makes it feel like a true backcountry escape."}]},
+  { id:113, lat:24.8120, lng:-80.8040, name:"Long Key State Park", region:"Florida Keys", county:"Monroe", emoji:"🌊", color:"#2d8aaa", fact:"A classic Keys park with ocean views on both sides, excellent bonefishing flats, and beautiful nature trail.", facts:[{icon:"🎣",text:"The grass flats on Florida Bay side are prime bonefishing territory — a world-class light tackle fishery."},{icon:"🛶",text:"A canoe trail through the mangroves along Florida Bay offers close encounters with herons."},{icon:"🌊",text:"Views from the campground extend over both the Atlantic Ocean and Florida Bay simultaneously."},{icon:"🌿",text:"The Golden Orb Trail weaves through a remarkable variety of Keys plant communities."}]},
+  { id:114, lat:26.4060, lng:-81.8590, name:"Lovers Key State Park", region:"Southwest Florida", county:"Lee", emoji:"🌅", color:"#c4703a", fact:"A romantic island park near Fort Myers Beach with one of Southwest Florida's best beaches.", facts:[{icon:"🌅",text:"Voted one of the top beaches in the US for its uncrowded, natural setting."},{icon:"🌿",text:"Encompasses four islands connected by a tram ride through mangrove and coastal hammock."},{icon:"🦅",text:"Bald eagles, ospreys, and roseate spoonbills are regularly seen from the trails and beach."},{icon:"🐬",text:"Bottlenose dolphins frequently hunt in the shallow passes between the islands."}]},
+  { id:115, lat:29.3730, lng:-83.1490, name:"Fanning Springs State Park", region:"Nature Coast", county:"Gilchrist", emoji:"💧", color:"#1a7a6a", fact:"A crystal-clear first-magnitude spring on the Suwannee River beloved for swimming.", facts:[{icon:"💧",text:"The spring discharges 65 million gallons of 68°F water per day into the Suwannee River."},{icon:"🤿",text:"Crystal-clear spring run with excellent visibility to the limestone bottom."},{icon:"🦭",text:"Manatees frequently move into the spring run during cold winter weather."},{icon:"🌿",text:"A nature trail winds along the Suwannee River through gorgeous river swamp."}]},
+  { id:116, lat:29.9040, lng:-81.3290, name:"Stephen Foster Folk Culture Center State Park", region:"North Florida", county:"Hamilton", emoji:"🎵", color:"#7a5020", fact:"On the Suwannee River — Florida's musical heritage park celebrating folk culture.", facts:[{icon:"🎵",text:"Dedicated to Stephen Foster, who wrote 'Old Folks at Home' in 1851."},{icon:"🎶",text:"A 97-bell carillon tower plays Foster's melodies every 15 minutes."},{icon:"🏛️",text:"The Florida Folk Festival is held here each Memorial Day weekend — one of the oldest folk festivals in the US."},{icon:"🌊",text:"The park sits on a beautiful bend of the Suwannee River with riverside camping."}]},
+  { id:117, lat:30.3944, lng:-83.1628, name:"Suwannee River State Park", region:"North Florida", county:"Suwannee", emoji:"🛶", color:"#4a7fa5", fact:"Where the Withlacoochee and Suwannee rivers meet, immortalized by the folk song 'Old Folks at Home.'", facts:[{icon:"🎵",text:"The Suwannee River is Florida's state song river, mentioned in Stephen Foster's iconic 1851 song."},{icon:"💧",text:"Spring-fed waters keep the river at a constant 68°F year-round."},{icon:"🏛️",text:"Civil War-era earthworks are still visible along the river bank."},{icon:"🐊",text:"Home to Florida cooter turtles, American alligators, and the rare Suwannee cooter."}]},
+  { id:118, lat:29.3440, lng:-82.4420, name:"Three Rivers State Park", region:"Panhandle", county:"Jackson", emoji:"🌊", color:"#4a6741", fact:"A serene park where the Apalachicola, Chattahoochee, and Flint rivers converge in Northwest Florida.", facts:[{icon:"🌊",text:"Lake Seminole at the confluence of three rivers is one of Northwest Florida's best bass fisheries."},{icon:"🌿",text:"Beech-magnolia ravine forest along the bluffs is among the most scenic and botanically diverse in Florida."},{icon:"🦅",text:"Bald eagles nest along the shoreline and ospreys are commonly seen diving for fish."},{icon:"🏕️",text:"The campground overlooks the lake — one of the most peaceful camping experiences in the Panhandle."}]},
+  { id:119, lat:30.5583, lng:-84.9517, name:"Torreya State Park", region:"Panhandle", county:"Liberty", emoji:"🌲", color:"#2d4a20", fact:"Protects the nearly-extinct Florida torreya tree and the dramatic ravines of the Apalachicola Bluffs.", facts:[{icon:"🌲",text:"The Florida torreya tree grows only in this region — fewer than 1,000 individuals remain in the wild."},{icon:"🌿",text:"The Apalachicola Bluffs support plant communities found nowhere else in Florida."},{icon:"🏰",text:"The Gregory House (1849) is a restored antebellum plantation home moved here for preservation."},{icon:"🌊",text:"The Apalachicola River below the bluffs has more endemic species than any river basin in North America."}]},
+  { id:120, lat:28.6840, lng:-81.9350, name:"Lake Louisa State Park (Clermont Unit)", region:"Central Florida", county:"Lake", emoji:"🌊", color:"#4a7fa5", fact:"Part of the chain of 13 spring-fed lakes in the heart of the Green Swamp.", facts:[{icon:"🌊",text:"Encompasses 13 spring-fed lakes connected by the Palatlakaha River."},{icon:"🛶",text:"Paddling between the lakes through cypress swamps is one of Central Florida's most rewarding water trails."},{icon:"🐎",text:"Extensive equestrian trail system loops through the park's flatwoods and scrub."},{icon:"🌿",text:"The park lies within the Green Swamp, a critical water recharge area for Central Florida."}]},
+  { id:121, lat:28.9270, lng:-82.5740, name:"Crystal River Archaeological State Park", region:"Nature Coast", county:"Citrus", emoji:"🏛️", color:"#7a5020", fact:"One of Florida's most significant pre-Columbian archaeological sites — a ceremonial mound complex used for 1,600 years.", facts:[{icon:"🏛️",text:"The Crystal River mound complex was used by at least six separate Native American cultures over 1,600 years."},{icon:"🌿",text:"The site includes burial mounds, a temple mound, and shell middens across a 14-acre complex."},{icon:"🌊",text:"The park's location on Kings Bay means manatees are regularly visible from the mound tops."},{icon:"🔬",text:"Artifacts span from 200 BC to 1400 AD, representing multiple distinct cultural traditions."}]},
+  { id:122, lat:27.9760, lng:-80.9040, name:"Lake Kissimmee State Park (Fishing Unit)", region:"Central Florida", county:"Polk", emoji:"🎣", color:"#6b7a2a", fact:"The Lake Kissimmee fishing area — world-class largemouth bass fishing on one of Florida's largest lakes.", facts:[{icon:"🎣",text:"Lake Kissimmee is consistently ranked among the top largemouth bass fishing lakes in the US."},{icon:"🦅",text:"Bald eagles and ospreys fish the lake's open water throughout the year."},{icon:"🌾",text:"Surrounding dry prairie and wetlands support breeding sandhill cranes and wood storks."},{icon:"🛶",text:"Lake access for paddling through the adjacent marsh system and smaller connected lakes."}]},
+  { id:123, lat:24.6600, lng:-81.5100, name:"Bahia Honda (Bay Side)", region:"Florida Keys", county:"Monroe", emoji:"🐠", color:"#1a8080", fact:"The bay side of Bahia Honda State Park offers kayaking, fishing, and views of the historic railroad bridge.", facts:[{icon:"🐠",text:"Florida Bay side offers excellent snorkeling in shallow clear water over seagrass beds."},{icon:"🛶",text:"Kayak rentals are available for exploring the mangrove shoreline of Little Pine Key."},{icon:"🦅",text:"Magnificent frigatebirds and brown pelicans are commonly seen soaring overhead."},{icon:"🌉",text:"The best views of the historic Bahia Honda Rail Bridge are from the bay-side beach."}]},
+  { id:124, lat:30.2360, lng:-85.7760, name:"St. Andrews State Park (Shell Island)", region:"Panhandle", county:"Bay", emoji:"🏝️", color:"#2d8aaa", fact:"Shell Island — an undeveloped barrier island accessible by ferry from St. Andrews — with pristine Panhandle beach.", facts:[{icon:"🏝️",text:"Shell Island is accessible only by ferry from St. Andrews State Park — no roads or bridges."},{icon:"🐚",text:"Shelling is exceptional on the island's Gulf side, especially after winter storms."},{icon:"🦈",text:"Clear water around the island supports excellent snorkeling over natural limestone reefs."},{icon:"🐢",text:"Loggerhead sea turtles nest on the undisturbed beach, monitored by park rangers each summer."}]},
+  { id:125, lat:29.0500, lng:-83.0590, name:"Chassahowitzka Wildlife Management Area", region:"Nature Coast", county:"Citrus/Hernando", emoji:"🦩", color:"#2d6e8a", fact:"A vast remote coastal wilderness on the Nature Coast accessible primarily by boat.", facts:[{icon:"🦩",text:"The WMA's spring-fed rivers support world-class wading bird and waterfowl populations."},{icon:"💧",text:"Multiple springs within the WMA feed crystal-clear rivers into the Gulf — critical manatee habitat."},{icon:"⛵",text:"Best explored by boat or kayak — few roads penetrate the interior wilderness."},{icon:"🐊",text:"American alligators and the endangered Atlantic sturgeon inhabit the Chassahowitzka River."}]},
+  { id:126, lat:26.4010, lng:-80.0820, name:"John D. MacArthur Beach State Park (North Palm Beach)", region:"Southeast Florida", county:"Palm Beach", emoji:"🌊", color:"#2d8aaa", fact:"See John D. MacArthur Beach — pristine Atlantic beach with a boardwalk over a tropical lagoon.", facts:[{icon:"🌊",text:"One of the last undeveloped natural beach environments in Palm Beach County."},{icon:"🪸",text:"Snorkeling a natural reef just offshore reveals juvenile reef fish and coral."},{icon:"🐢",text:"Loggerhead, leatherback, and green sea turtles nest on the park's beach each summer."},{icon:"🌿",text:"Tropical coastal hammock lines the lagoon — a rare habitat remnant in Palm Beach."}]},
+  { id:127, lat:29.8910, lng:-83.0060, name:"Troy Spring State Park", region:"North Florida", county:"Lafayette", emoji:"💧", color:"#1a5c7a", fact:"A first-magnitude spring with the visible submerged wreck of the Civil War steamboat Madison.", facts:[{icon:"🚢",text:"The steamboat Madison was scuttled here by Confederate forces in 1861 — the wreck is visible."},{icon:"💧",text:"Troy Spring discharges 70 million gallons of 68°F water per day into the Suwannee River."},{icon:"🤿",text:"Snorkeling and cave diving with excellent visibility revealing the wreck and spring cave."},{icon:"🦭",text:"Manatees seek the spring's warm water during cold winter weather."}]},
+  { id:128, lat:29.0065, lng:-80.9046, name:"Turtle Mound Archaeological Site", region:"Central East Florida", county:"Volusia", emoji:"🐚", color:"#7a5020", fact:"The largest shell midden on the US East Coast — a 35-foot Timucuan shell mound visible from the Atlantic.", facts:[{icon:"🐚",text:"The mound contains an estimated 35 million pounds of oyster shell accumulated over 2,000 years."},{icon:"🏛️",text:"The mound was so large that Spanish explorers used it as a navigation landmark visible miles offshore."},{icon:"🌿",text:"A boardwalk spirals to the top through a remarkably preserved coastal hammock ecosystem."},{icon:"🦎",text:"Gopher tortoises have moved into the well-drained mound substrate and are easily observed."}]},
+  { id:129, lat:29.6680, lng:-82.3280, name:"Paynes Prairie Preserve (La Chua Trail)", region:"North Central Florida", county:"Alachua", emoji:"🦬", color:"#6b7a2a", fact:"The La Chua Trail at Paynes Prairie — a premier wildlife viewing trail for bison, horses, and alligators.", facts:[{icon:"🦬",text:"The La Chua Trail is the best access point for viewing the prairie's wild bison and Spanish horses."},{icon:"🐊",text:"Hundreds of alligators are visible from the trail overlook — one of Florida's most dramatic wildlife sights."},{icon:"🦩",text:"Sandhill cranes, whooping cranes, and dozens of wading bird species forage in the wet prairie."},{icon:"🌾",text:"The trail descends from the upland into the vast open prairie through a classic Florida hammock."}]},
+  { id:130, lat:30.3670, lng:-87.3060, name:"Perdido Key State Park", region:"Panhandle", county:"Escambia", emoji:"🏖️", color:"#e8c870", fact:"The most remote Florida Panhandle beach, with brilliant white sand and the endangered Perdido Key beach mouse.", facts:[{icon:"🐭",text:"The Perdido Key beach mouse is found only on this island — one of Florida's most endangered mammals."},{icon:"🏖️",text:"Classic Panhandle combination: sugar-white quartz sand and vivid emerald water."},{icon:"🌿",text:"Sea oat-covered dunes protect the beach mouse's burrow habitat and are legally protected."},{icon:"🦅",text:"Snowy plovers and least terns nest on the undisturbed sections each spring."}]},
+  { id:131, lat:30.4760, lng:-84.2760, name:"Natural Bridge Battlefield Historic State Park", region:"Panhandle", county:"Leon", emoji:"⚔️", color:"#7a5020", fact:"Site of the last significant Confederate victory east of the Mississippi River on March 6, 1865.", facts:[{icon:"⚔️",text:"Confederate forces including teenage cadets repelled a Union attack here."},{icon:"🌊",text:"The St. Marks River disappears underground and reappears at a 'natural bridge' — the battle's namesake."},{icon:"🏛️",text:"Annual reenactments each March draw large crowds."},{icon:"🌿",text:"The river hammock is lush with magnolias, beeches, and rare limestone-associated plants."}]},
+  { id:132, lat:27.0570, lng:-82.4420, name:"Delnor-Wiggins Pass State Park (North Collier)", region:"Southwest Florida", county:"Collier", emoji:"🌊", color:"#2d8aaa", fact:"Classic Gulf beach park at Wiggins Pass in North Naples — excellent shelling and wildlife watching.", facts:[{icon:"🌊",text:"The park sits at the mouth of Wiggins Pass where the Cocohatchee River meets the Gulf."},{icon:"🐚",text:"The beach is famous for shelling with lightning whelks, angel wings, and sand dollars."},{icon:"🦅",text:"Osprey nest on channel markers in the pass and bald eagles are frequently spotted."},{icon:"🐢",text:"Sea turtle monitoring is active here in summer."}]},
+  { id:133, lat:29.7440, lng:-84.9990, name:"Bald Point State Park (Alligator Point Unit)", region:"Panhandle", county:"Franklin", emoji:"🌬️", color:"#2d6e8a", fact:"The Alligator Point unit of Bald Point — remote Gulf shoreline famous for wind and kite sports.", facts:[{icon:"🌬️",text:"Consistent Gulf winds make this one of the top kiteboarding and windsurfing spots in the Southeast."},{icon:"🌊",text:"The remote shoreline is backed by a mosaic of salt marsh, scrub, and coastal flatwoods."},{icon:"🦅",text:"Swallow-tailed kites pass through in large numbers during spring migration."},{icon:"🐢",text:"Loggerhead sea turtles nest on the undisturbed Alligator Point beach each summer."}]},
+  { id:134, lat:28.7690, lng:-82.5840, name:"Crystal River Preserve (Kings Bay Unit)", region:"Nature Coast", county:"Citrus", emoji:"🦭", color:"#1a7a9a", fact:"The Kings Bay unit of Crystal River Preserve — prime swimming-with-manatees habitat.", facts:[{icon:"🦭",text:"Kings Bay hosts the largest concentration of wintering manatees in North America."},{icon:"🤿",text:"Crystal River is one of the only places in the world where you can legally swim with manatees."},{icon:"💧",text:"Over 30 springs keep Kings Bay at a constant 72°F year-round."},{icon:"🌿",text:"The surrounding preserve protects tidal marshes critical for wading bird nesting."}]},
+  { id:135, lat:27.4650, lng:-82.5680, name:"Myakka River State Park (Upper Lake Unit)", region:"Southwest Florida", county:"Sarasota", emoji:"🐊", color:"#6b7a2a", fact:"The upper lake unit of Myakka River State Park — prime alligator and bird viewing.", facts:[{icon:"🐊",text:"Upper Myakka Lake is one of the most productive alligator viewing spots in all of Florida."},{icon:"🦅",text:"The airboat and tram tours on the upper lake offer close wildlife encounters."},{icon:"🌾",text:"Dry prairie habitat surrounding the upper lake supports crested caracaras and sandhill cranes."},{icon:"🌿",text:"The canopy walkway provides a bird's-eye view of the floodplain forest canopy."}]},
+  { id:136, lat:26.0090, lng:-80.1220, name:"Dr. Von D. Mizell-Eula Johnson State Park", region:"Southeast Florida", county:"Broward", emoji:"🏖️", color:"#c4703a", fact:"Formerly John U. Lloyd Beach — significant as a segregation-era 'colored beach' in Broward County.", facts:[{icon:"✊",text:"Renamed in 2021 to honor Dr. Von Mizell and Eula Johnson, civil rights leaders who fought for beach access."},{icon:"🐢",text:"The park has some of the highest sea turtle nesting density in Broward County."},{icon:"⛵",text:"The inlet provides access to Port Everglades and the Intracoastal Waterway for boaters."},{icon:"🌿",text:"Coastal hammock and mangrove habitat within the park support surprising bird diversity."}]},
+  { id:137, lat:26.3400, lng:-81.8100, name:"Mound Key Archaeological State Park (Estero Bay)", region:"Southwest Florida", county:"Lee", emoji:"🏛️", color:"#7a5020", fact:"The likely capital of the Calusa Kingdom — a massive shell mound island in Estero Bay.", facts:[{icon:"🏛️",text:"Mound Key was likely the capital city Calos of the powerful Calusa Kingdom."},{icon:"⛵",text:"Only accessible by paddling or boating through Estero Bay Aquatic Preserve."},{icon:"🐚",text:"The Calusa built this island entirely from shell refuse over 2,000 years of habitation."},{icon:"🌿",text:"Mangroves and tropical hammock now cover the mounds in a mysterious landscape."}]},
+  { id:138, lat:29.8550, lng:-84.0180, name:"St. Marks Lighthouse Historic Area", region:"Panhandle", county:"Wakulla", emoji:"🏛️", color:"#2d6e8a", fact:"The historic 1831 St. Marks Lighthouse stands within the St. Marks NWR — one of Florida's oldest lighthouses.", facts:[{icon:"🏛️",text:"The St. Marks Lighthouse (1831) is one of the oldest surviving lighthouses in Florida."},{icon:"🦋",text:"Monarch butterflies funnel past the lighthouse each fall in spectacular migration numbers."},{icon:"🦅",text:"Bald eagles and ospreys nest in the surrounding pines near the lighthouse grounds."},{icon:"🌊",text:"The lighthouse sits at the edge of Apalachee Bay — a vast, shallow Gulf estuary."}]},
+  { id:139, lat:25.5730, lng:-80.5050, name:"Everglades National Park (State Access/Royal Palm)", region:"South Florida", county:"Miami-Dade/Monroe", emoji:"🐊", color:"#1a5a2a", fact:"The largest subtropical wilderness in the US — the only place in the world where alligators and crocodiles coexist.", facts:[{icon:"🐊",text:"Everglades is the only place in the world where American alligators and American crocodiles naturally coexist."},{icon:"🌿",text:"The 'River of Grass' is actually a vast, slow-moving sheet of water flowing south through sawgrass prairie."},{icon:"🦩",text:"Historically the largest wading bird rookery in North America with millions of herons, egrets, and ibis."},{icon:"🎿",text:"UNESCO World Heritage Site, International Biosphere Reserve, and Ramsar Wetland of International Importance."}]},
+  { id:140, lat:29.4800, lng:-82.8900, name:"Waccasassa Bay Preserve State Park", region:"Nature Coast", county:"Levy", emoji:"🌊", color:"#2d6e8a", fact:"A remote, undeveloped coastal preserve accessible only by boat, protecting vital Gulf Coast wetlands.", facts:[{icon:"🌊",text:"Over 30,000 acres of tidal marsh, mangrove, and Gulf coastal wetlands."},{icon:"⛵",text:"There are no roads — access is only by boat from the Gulf Hammock boat ramp."},{icon:"🦩",text:"Critical nesting and foraging habitat for wood storks, roseate spoonbills, and bald eagles."},{icon:"🐊",text:"American alligators and American crocodiles both occur within the preserve's brackish wetlands."}]},
+  { id:141, lat:29.6380, lng:-82.3580, name:"Paynes Prairie Preserve (Alachua Sink Trail)", region:"North Central Florida", county:"Alachua", emoji:"🕳️", color:"#6b7a2a", fact:"The Alachua Sink Trail at Paynes Prairie — access to the famous sinkhole that once drained the entire lake.", facts:[{icon:"🕳️",text:"The Alachua Sink is the geological feature that suddenly drained the ancient lake in 1891, creating the prairie."},{icon:"🌿",text:"The trail winds through beautiful live oak hammock to the edge of the wet prairie basin."},{icon:"🦅",text:"Bald eagles, swallow-tailed kites, and sandhill cranes are commonly spotted from the trail."},{icon:"🐊",text:"American alligators are frequently visible in the marsh adjacent to the sink trail."}]},
+  { id:142, lat:30.5340, lng:-87.2170, name:"Big Lagoon State Park (West Unit)", region:"Panhandle", county:"Escambia", emoji:"🌅", color:"#c4703a", fact:"The western unit of Big Lagoon State Park — prime Panhandle sunset viewing and lagoon fishing.", facts:[{icon:"🌅",text:"The observation tower offers some of the most spectacular Gulf Coast sunset views anywhere."},{icon:"🎣",text:"The lagoon and its tidal creeks offer excellent fishing for redfish, flounder, and speckled trout."},{icon:"🦅",text:"Ospreys and bald eagles nest in the park's tall pines overlooking Big Lagoon."},{icon:"🐚",text:"The lagoon's shell-hash beaches attract shorebirds and offer casual shell collecting."}]},
+  { id:143, lat:29.0760, lng:-81.3190, name:"De Bary Hall Historic State Park", region:"Central Florida", county:"Volusia", emoji:"🏛️", color:"#7a5020", fact:"A magnificent 1871 winter estate on the St. Johns River, built by Florida's most famous Belgian wine baron.", facts:[{icon:"🏛️",text:"De Bary Hall was built in 1871 by Frederick de Bary — a Belgian champagne merchant — as a winter retreat."},{icon:"🌿",text:"The estate's gardens and hammock sit on a high bluff overlooking the St. Johns River."},{icon:"🛶",text:"The St. Johns River adjacent to the property offers excellent fishing and paddling."},{icon:"🦅",text:"Bald eagles and anhingas are commonly observed from the estate's bluff overlooking the river."}]},
+  { id:144, lat:26.5030, lng:-80.0680, name:"Coral Cove Park / Blowing Rocks Preserve", region:"Southeast Florida", county:"Palm Beach", emoji:"🪸", color:"#1a7a8a", fact:"Rocky Anastasia limestone outcroppings on Jupiter Island with excellent snorkeling and dramatic wave action.", facts:[{icon:"🪸",text:"Rocky limestone outcroppings extend into the sea, creating a natural snorkeling reef."},{icon:"🌊",text:"The limestone 'blowing rocks' shoot dramatic plumes of water skyward during high surf."},{icon:"🦷",text:"Fossilized shark teeth and coral can be found among the beach rocks and sand."},{icon:"🐢",text:"Sea turtle nesting is active along this stretch of Jupiter Island beach in summer."}]},
+  { id:145, lat:30.2590, lng:-83.5070, name:"Madison Blue Spring State Park", region:"North Florida", county:"Madison", emoji:"💙", color:"#1a5c7a", fact:"One of Florida's clearest springs, with a striking deep-blue color and strong flow into the Withlacoochee River.", facts:[{icon:"💙",text:"The spring's remarkable deep-blue color is caused by light scattering through exceptionally clear water."},{icon:"💧",text:"Discharges a strong flow year-round, keeping the temperature at a constant 68°F."},{icon:"🤿",text:"Cave diving extends deep into the Florida aquifer through a cave system at the spring head."},{icon:"🦭",text:"Manatees use the spring as a warm refuge from cold river water during winter months."}]},
+  { id:146, lat:26.1300, lng:-81.7820, name:"Collier-Seminole State Park (Canoe Launch)", region:"South Florida", county:"Collier", emoji:"🛶", color:"#1a5a2a", fact:"The canoe launch unit of Collier-Seminole — gateway to the Ten Thousand Islands wilderness paddle.", facts:[{icon:"🛶",text:"The 13-mile wilderness canoe trail begins here, winding through the Ten Thousand Islands."},{icon:"🌿",text:"The trail passes through some of the most remote and pristine mangrove estuary in Florida."},{icon:"🦩",text:"Wood storks, spoonbills, and the rare snail kite can be observed along the canoe trail."},{icon:"🐊",text:"American alligators and American crocodiles are both present in the estuary."}]},
+  { id:147, lat:29.8880, lng:-84.5100, name:"Ochlockonee River State Park (Campground)", region:"Panhandle", county:"Wakulla", emoji:"🏕️", color:"#4a6741", fact:"The campground unit of Ochlockonee River State Park — one of the most scenic camping spots in the Panhandle.", facts:[{icon:"🏕️",text:"Gulf-side camping at the Ochlockonee River mouth with stunning sunsets over the water."},{icon:"🎣",text:"Excellent fishing for redfish and speckled trout in the river and adjacent tidal creeks."},{icon:"🌿",text:"Longleaf pine flatwoods surround the campground — a beautiful and increasingly rare landscape."},{icon:"🦅",text:"Bald eagles nest in the tall longleaf pines near the campground."}]},
+  { id:148, lat:29.8060, lng:-82.4700, name:"Osceola National Forest (Big Gum Swamp Wilderness)", region:"North Central Florida", county:"Baker/Columbia", emoji:"🌲", color:"#3d6632", fact:"The Big Gum Swamp Wilderness within Osceola National Forest — one of Florida's wildest roadless areas.", facts:[{icon:"🌲",text:"Big Gum Swamp is a federally designated wilderness — no roads or mechanized equipment permitted."},{icon:"🐊",text:"Alligators, black bears, and Florida panthers have all been documented in the swamp."},{icon:"🌿",text:"Ancient bald cypress and pond cypress form the swamp's magnificent interior canopy."},{icon:"🎵",text:"The barred owl chorus at dusk in the Big Gum Swamp is one of Florida's most spectacular natural sounds."}]},
+  { id:149, lat:29.7570, lng:-85.1810, name:"St. Joseph Peninsula State Park (Campground)", region:"Panhandle", county:"Gulf", emoji:"🏕️", color:"#2d8aaa", fact:"The campground unit of St. Joseph Peninsula — camping right on one of Florida's wildest Gulf beaches.", facts:[{icon:"🏕️",text:"Campsites sit directly on the Gulf-front dunes with no roads between tent and ocean."},{icon:"🦅",text:"The peninsula is one of the top raptor migration watchpoints in the eastern United States."},{icon:"🐚",text:"Shelling is exceptional on both the Gulf side and St. Joseph Bay side of the peninsula."},{icon:"🐢",text:"Loggerhead sea turtle nesting density here is among the highest in the Florida Panhandle."}]},
+  { id:150, lat:25.0210, lng:-80.4140, name:"Dagny Johnson Key Largo Hammock Botanical State Park", region:"Florida Keys", county:"Monroe", emoji:"🌿", color:"#1a6a3a", fact:"Protects the largest tropical hardwood hammock in the continental United States on North Key Largo.", facts:[{icon:"🌿",text:"Over 100 species of protected plants and 125 species of protected animals live in the hammock."},{icon:"🦜",text:"The white-crowned pigeon and mangrove cuckoo nest in the thick canopy."},{icon:"🌺",text:"Rare tropical plants like Jamaica dogwood, poisonwood, and wild tamarind create a jungle-like interior."},{icon:"🐍",text:"The Eastern indigo snake — the longest native snake in North America — is found in the hammock."}]},
+  { id:151, lat:28.8030, lng:-82.1980, name:"Lake June-in-Winter Scrub State Park", region:"Central Florida", county:"Highlands", emoji:"🌵", color:"#9ab08d", fact:"Protects outstanding ancient Florida scrub — a rare, desert-like ecosystem rich in endemic species.", facts:[{icon:"🌵",text:"One of the finest examples of ancient sand scrub in the Lake Wales Ridge region."},{icon:"🦜",text:"The Florida scrub-jay — found only in Florida — is a year-round resident easily observed."},{icon:"🐢",text:"Florida gopher tortoise, Florida mouse, and Florida scrub lizard are endemic scrub species."},{icon:"🌸",text:"Rare plants like nodding pinweed and scrub morning-glory bloom seasonally."}]},
+  { id:152, lat:27.7450, lng:-82.6210, name:"Manatee Springs State Park (Suwannee Unit)", region:"Nature Coast", county:"Gilchrist", emoji:"🦭", color:"#3a8070", fact:"The Suwannee River confluence unit of Manatee Springs — where the spring run meets the Suwannee.", facts:[{icon:"🦭",text:"Manatees move between the Suwannee River and the spring run, often visible from the boardwalk."},{icon:"💧",text:"The spring run's 68°F water enters the Suwannee River here in a spectacular confluence."},{icon:"🌿",text:"A magnificent bald cypress boardwalk extends to the spring head through ancient swamp."},{icon:"🎣",text:"The Suwannee River adjacent to the park offers excellent fishing for largemouth bass and catfish."}]},
+  { id:153, lat:30.6060, lng:-87.1320, name:"Blackwater River State Forest", region:"Panhandle", county:"Santa Rosa/Okaloosa", emoji:"🌲", color:"#3d6632", fact:"Florida's largest state forest — 183,000 acres of longleaf pine flatwoods and blackwater streams.", facts:[{icon:"🌲",text:"At 183,000 acres, Blackwater River State Forest is the largest state forest in Florida."},{icon:"🌿",text:"Ancient longleaf pine forests and pristine blackwater streams define this remarkable landscape."},{icon:"🐦",text:"Red-cockaded woodpeckers — federally endangered — maintain colonies in old-growth longleaf pines."},{icon:"🏕️",text:"The forest offers primitive camping, hunting, fishing, and hiking on extensive trail networks."}]},
+  { id:154, lat:30.2000, lng:-82.8040, name:"Big Shoals Public Lands (Upper Unit)", region:"North Florida", county:"Hamilton", emoji:"🌊", color:"#1a5c7a", fact:"Public lands adjacent to Big Shoals State Park protecting the Suwannee River's rapid corridor.", facts:[{icon:"🌊",text:"Protects the upland forest buffer above Florida's most dramatic whitewater stretch."},{icon:"🌿",text:"Longleaf pine flatwoods and river swamp create a diverse forest habitat along the river."},{icon:"🐾",text:"Black bears are frequently documented on the public lands trail cameras."},{icon:"🛶",text:"Paddlers camping on the public lands can run the Big Shoals rapids at high water."}]},
+  { id:155, lat:28.6680, lng:-81.3780, name:"Lake Jesup Conservation Area (Osteen Unit)", region:"Central Florida", county:"Seminole/Volusia", emoji:"🐊", color:"#4a7020", fact:"Part of the Lake Jesup Conservation Area — home to the highest concentration of alligators in Florida.", facts:[{icon:"🐊",text:"Lake Jesup has an estimated 13,000+ alligators — one of the highest concentrations in the world."},{icon:"🦅",text:"Bald eagles, sandhill cranes, and limpkins are abundant in the wetlands surrounding the lake."},{icon:"🌿",text:"The conservation area protects critical wetlands in the upper St. Johns River watershed."},{icon:"🌊",text:"The lake is part of the St. Johns River system — Florida's longest river."}]},
+  { id:156, lat:28.4010, lng:-82.1640, name:"Withlacoochee State Forest (Richloam Unit)", region:"Nature Coast", county:"Hernando/Pasco", emoji:"🌲", color:"#3d6632", fact:"The Richloam Unit of Withlacoochee State Forest — longleaf pine flatwoods and spring-fed ponds.", facts:[{icon:"🌲",text:"The Richloam Unit contains beautiful longleaf pine flatwoods managed with prescribed fire."},{icon:"💧",text:"Several small spring-fed ponds within the unit provide excellent fishing and wildlife viewing."},{icon:"🦌",text:"White-tailed deer, turkey, and Florida black bear are regularly observed."},{icon:"🏕️",text:"Primitive camping and hunting are permitted throughout the unit."}]},
+  { id:157, lat:30.0480, lng:-83.4750, name:"Lafayette Blue Springs State Park", region:"North Florida", county:"Lafayette", emoji:"💧", color:"#1a7a6a", fact:"A pristine, remote first-magnitude spring on the Suwannee River.", facts:[{icon:"💧",text:"Lafayette Blue Spring — visibility often exceeds 150 feet, one of Florida's clearest springs."},{icon:"🦭",text:"Manatees regularly use the spring as a warm-water refuge during winter cold spells."},{icon:"🤿",text:"Snorkeling and cave diving attract enthusiasts from across the country."},{icon:"🌿",text:"The surrounding Suwannee River floodplain forest is near-pristine."}]},
+  { id:158, lat:29.5620, lng:-82.9800, name:"Paynes Prairie Preserve (Cone's Dike Trail)", region:"North Central Florida", county:"Alachua", emoji:"🌾", color:"#6b7a2a", fact:"The Cone's Dike Trail at Paynes Prairie — a classic levee hike with exceptional wildlife viewing.", facts:[{icon:"🌾",text:"The dike trail provides a 6-mile round trip across the wet prairie with outstanding wildlife views."},{icon:"🦬",text:"Wild bison and Spanish horses are commonly seen from the dike trail in the open prairie."},{icon:"🐊",text:"Hundreds of alligators are visible from the elevated dike perspective."},{icon:"🦩",text:"Sandhill cranes, whooping cranes, and roseate spoonbills congregate near the dike seasonally."}]},
+  { id:159, lat:25.7540, lng:-80.3440, name:"Oleta River State Park (North Unit)", region:"Southeast Florida", county:"Miami-Dade", emoji:"🚴", color:"#2d7a3a", fact:"The northern portion of Oleta River State Park — Miami's largest urban park and premier mountain biking spot.", facts:[{icon:"🚴",text:"Over 10 miles of mountain bike trails — South Florida's most popular off-road cycling destination."},{icon:"🛶",text:"Canoe and kayak access through the mangrove tunnel to Biscayne Bay."},{icon:"🌿",text:"Protects the largest mangrove forest remaining in Miami-Dade County."},{icon:"🏖️",text:"A small Biscayne Bay beach offers swimming right in the heart of Miami."}]},
+  { id:160, lat:28.3050, lng:-80.6820, name:"Canaveral National Seashore (Apollo Beach Unit)", region:"Central East Florida", county:"Volusia", emoji:"🚀", color:"#2d6e8a", fact:"The Apollo Beach unit of Canaveral National Seashore — the northern access to this pristine Atlantic shoreline.", facts:[{icon:"🚀",text:"Rocket launches from Kennedy Space Center are visible from this beach."},{icon:"🐢",text:"Some of the highest loggerhead and green sea turtle nesting density on the US East Coast."},{icon:"🌿",text:"Mosquito Lagoon to the west is one of Florida's most biodiverse estuarine environments."},{icon:"🏛️",text:"Timucuan shell middens are preserved along the lagoon's western shore."}]},
+  { id:161, lat:30.3530, lng:-86.1830, name:"Grayton Beach State Park (Western Lake Unit)", region:"Panhandle", county:"Walton", emoji:"💧", color:"#2d8aaa", fact:"Western Lake at Grayton Beach — one of Florida's rare coastal dune lakes protected by the state.", facts:[{icon:"💧",text:"Western Lake is one of only about 70 coastal dune lakes in the world — found primarily on 30-A."},{icon:"🌊",text:"The lake periodically outfalls through the dunes into the Gulf after heavy rain."},{icon:"🏖️",text:"Canoes and kayaks can be paddled on the lake with the Gulf visible over the dunes."},{icon:"🌿",text:"Carnivorous plants and rare orchids grow in the wet areas around the lake margins."}]},
+  { id:162, lat:30.5900, lng:-85.1840, name:"Florida Caverns State Park (Blue Hole Spring)", region:"Panhandle", county:"Jackson", emoji:"💧", color:"#4a3030", fact:"The Blue Hole Spring at Florida Caverns — a beautiful spring adjacent to the Chipola River.", facts:[{icon:"💧",text:"Blue Hole Spring provides crystal-clear water that feeds into the Chipola River."},{icon:"🦇",text:"Cave bats emerge from the cavern system at dusk in impressive evening flights."},{icon:"🌿",text:"The spring is surrounded by floodplain forest with excellent birding for warblers and vireos."},{icon:"🛶",text:"The Chipola River below the park offers excellent paddling through scenic limestone country."}]},
+  { id:163, lat:26.8060, lng:-80.0710, name:"Jonathan Dickinson State Park (Loxahatchee River Unit)", region:"Treasure Coast", county:"Martin", emoji:"🛶", color:"#4a6741", fact:"The Loxahatchee River unit of Jonathan Dickinson — Florida's only federally Wild and Scenic River.", facts:[{icon:"🛶",text:"The Loxahatchee River is the only federally designated Wild and Scenic River in Florida."},{icon:"🦅",text:"The river corridor contains the largest protected area of Florida scrub-jay habitat in the Southeast."},{icon:"🐊",text:"River otters, manatees, and alligators are commonly seen along the river."},{icon:"🌿",text:"Boat tours up the Loxahatchee are one of the most popular nature experiences in South Florida."}]},
+  { id:164, lat:29.3960, lng:-83.1480, name:"Manatee Springs State Park (River Area)", region:"Nature Coast", county:"Gilchrist", emoji:"🌊", color:"#3a8070", fact:"The river area of Manatee Springs — where the spring run flows into the legendary Suwannee River.", facts:[{icon:"🌊",text:"The spring run flows 400 yards through a breathtaking cypress swamp before joining the Suwannee."},{icon:"🌿",text:"A boardwalk extends from the spring head to the Suwannee through a stunning cypress forest."},{icon:"🦭",text:"Manatees are commonly seen in both the spring run and in the Suwannee River itself."},{icon:"🎣",text:"The Suwannee River here offers excellent fishing for largemouth bass, catfish, and gar."}]},
+  { id:165, lat:29.0120, lng:-82.0290, name:"Silver Springs State Park (Silver River Unit)", region:"North Central Florida", county:"Marion", emoji:"🐒", color:"#1a7a6a", fact:"The Silver River unit of Silver Springs — where wild rhesus monkeys roam and glass-bottom boats glide.", facts:[{icon:"🐒",text:"Wild rhesus macaques — descendants of monkeys brought for a 1938 Tarzan film — live along the river."},{icon:"💧",text:"The Silver River carries 550 million gallons of crystal-clear 72°F spring water to the Ocklawaha."},{icon:"🎬",text:"Multiple Tarzan films and James Bond movies were filmed in these exceptionally clear waters."},{icon:"🌿",text:"The park museum and nature center tell the story of this remarkable river's history."}]},
+  { id:166, lat:29.6820, lng:-82.3610, name:"Paynes Prairie Preserve (Wacahoota Trail)", region:"North Central Florida", county:"Alachua", emoji:"🌾", color:"#6b7a2a", fact:"The Wacahoota Trail at Paynes Prairie — a forested trail with excellent birding and wildlife.", facts:[{icon:"🌾",text:"The Wacahoota Trail loops through live oak hammock at the prairie's upland margin."},{icon:"🦬",text:"Wild bison and Spanish horses wander into the hammock edges from the open prairie."},{icon:"🦩",text:"Sandhill cranes, limpkins, and swallow-tailed kites are commonly observed from the trail."},{icon:"🌿",text:"Spring wildflowers including wild azalea and native iris bloom along the trail in March."}]},
+  { id:167, lat:27.2440, lng:-80.2680, name:"Savannas Preserve State Park (Jensen Beach Unit)", region:"Treasure Coast", county:"St. Lucie", emoji:"🌾", color:"#9ab08d", fact:"The Jensen Beach unit of Savannas Preserve — protecting freshwater savanna adjacent to the Indian River Lagoon.", facts:[{icon:"🌾",text:"The freshwater coastal savannas here are among the rarest ecosystems in the eastern United States."},{icon:"🦋",text:"The rare Atala butterfly, once thought extinct, has been reintroduced in this unit."},{icon:"🌿",text:"Carnivorous plants including sundews and pitcher plants grow in the wet savanna margins."},{icon:"🦩",text:"Wood storks and roseate spoonbills forage in the shallow savanna wetlands seasonally."}]},
+  { id:168, lat:27.0740, lng:-82.0830, name:"Venice Area Beaches (State Lands)", region:"Southwest Florida", county:"Sarasota", emoji:"🦷", color:"#2d6e8a", fact:"Venice Beach state lands are world-famous for finding fossilized shark teeth washing up from offshore deposits.", facts:[{icon:"🦷",text:"Venice is the 'Shark Tooth Capital of the World' — fossilized teeth wash ashore from offshore Miocene deposits."},{icon:"🌊",text:"The beach is backed by coastal strand vegetation and is less developed than most Gulf beaches."},{icon:"🐚",text:"Coquina clams, lightning whelks, and colorful scallop shells also wash ashore here."},{icon:"🦅",text:"Snowy plovers nest on the undisturbed sections of beach, protected by state land designation."}]},
+  { id:169, lat:27.9700, lng:-82.5990, name:"Hillsborough River State Park (North Unit)", region:"Central Florida", county:"Hillsborough", emoji:"🌿", color:"#4a6741", fact:"The north unit of Hillsborough River State Park — Class II rapids on the Hillsborough River.", facts:[{icon:"🌊",text:"Class II rapids on the Hillsborough River are among the few visible rocky shoals in peninsular Florida."},{icon:"🏰",text:"The reconstructed Fort Foster is a Second Seminole War-era fort with annual living history events."},{icon:"🌿",text:"Ancient live oak hammocks and cypress swamps create a lush natural backdrop."},{icon:"🐊",text:"Florida softshell turtles, river otters, and alligators are regularly observed."}]},
+  { id:170, lat:29.5640, lng:-82.3440, name:"Paynes Prairie Preserve (Jackson's Gap Trail)", region:"North Central Florida", county:"Alachua", emoji:"🌾", color:"#6b7a2a", fact:"The Jackson's Gap Trail at Paynes Prairie — a lesser-traveled trail with fine wildlife viewing.", facts:[{icon:"🌾",text:"The trail offers a quieter, less-visited way to experience the prairie's unique ecosystems."},{icon:"🦬",text:"Wild bison can sometimes be observed from this trail when ranging through the northern prairie."},{icon:"🌿",text:"The trail passes through diverse habitats including hammock, scrubby flatwoods, and wet prairie."},{icon:"🦅",text:"Swallow-tailed kites are regularly observed soaring over the hammock from this trail in spring."}]},
+  { id:171, lat:28.0850, lng:-80.6360, name:"Sebastian Inlet State Park (Pelican Island Unit)", region:"Treasure Coast", county:"Indian River", emoji:"🦅", color:"#2d6e8a", fact:"Near Pelican Island NWR — the site of the first National Wildlife Refuge in the US, established in 1903.", facts:[{icon:"🦅",text:"Pelican Island was the first National Wildlife Refuge in the US, established by Theodore Roosevelt in 1903."},{icon:"🐢",text:"Brown pelicans, one of the recovery success stories of the Endangered Species Act, nest here."},{icon:"🌿",text:"The Indian River Lagoon adjacent to the park is one of the most biodiverse estuaries in North America."},{icon:"🏛️",text:"A boardwalk overlook provides views of the active pelican nesting colony on the historic island."}]},
+  { id:172, lat:30.0600, lng:-83.5860, name:"Lafayette Blue Springs (Rum Island Unit)", region:"North Florida", county:"Columbia", emoji:"💧", color:"#1a7a6a", fact:"The Rum Island unit on the Santa Fe River — crystal-clear swimming hole near the Lafayette Blue Springs system.", facts:[{icon:"💧",text:"Rum Island offers a beautiful swimming and tubing spot on the crystal-clear Santa Fe River."},{icon:"🤿",text:"The river's gin-clear water supports snorkeling with excellent visibility."},{icon:"🌿",text:"Ancient bald cypress trees line the river banks at this popular recreation spot."},{icon:"🦭",text:"Manatees move up the Santa Fe River from the Suwannee during cold winter weather."}]},
+  { id:173, lat:30.8820, lng:-85.5440, name:"Panhandle Pioneer Settlement Historic State Park", region:"Panhandle", county:"Holmes", emoji:"🏡", color:"#7a5020", fact:"A living history complex in Holmes County preserving early 20th century Panhandle pioneer life.", facts:[{icon:"🏡",text:"Historic buildings including a log cabin, one-room school, and mill have been relocated and restored here."},{icon:"🌾",text:"Demonstrations of turpentine production, syrup making, and pioneer crafts are presented seasonally."},{icon:"🌿",text:"The settlement sits in a beautiful longleaf pine flatwoods setting typical of early Panhandle Florida."},{icon:"🎵",text:"Old-time music gatherings and folk festivals are held annually at the settlement grounds."}]},
+  { id:174, lat:30.5140, lng:-84.8900, name:"Torreya State Park (River Bluff Trail)", region:"Panhandle", county:"Liberty", emoji:"🌲", color:"#2d4a20", fact:"The River Bluff Trail at Torreya — the most scenic hike in the Florida Panhandle with 150-foot bluffs.", facts:[{icon:"🌲",text:"The Florida torreya tree is one of the rarest trees in the world — fewer than 1,000 remain wild."},{icon:"🌿",text:"The Apalachicola Bluffs support Appalachian-like plant communities found nowhere else in Florida."},{icon:"🏰",text:"The Gregory House (1849) is a restored antebellum plantation home moved here for preservation."},{icon:"🌊",text:"The 150-foot river bluffs offer the most dramatic landscape scenery in all of Florida."}]},
+  { id:175, lat:30.7080, lng:-81.4640, name:"Nassau County Blueway Water Trail", region:"Northeast Florida", county:"Nassau", emoji:"🛶", color:"#2d6e8a", fact:"A designated water trail network connecting Fort Clinch, Big and Little Talbot islands and Nassau Sound by paddle.", facts:[{icon:"🛶",text:"The Nassau County Blueway connects the county's major conservation parks by a network of paddling routes."},{icon:"🌿",text:"Paddling routes wind through tidal creeks, salt marsh, and open sounds between Nassau's barrier islands."},{icon:"🦅",text:"The paddle trail passes nesting bald eagle territories, osprey platforms, and wood stork colonies."},{icon:"🐊",text:"Alligators, bottlenose dolphins, and manatees are all regularly encountered along the water trail."}]},
+];
+</script>
+
+<script>
+
+const DIFF_LABELS = ['','Easy','Moderate','Challenging','Expert','Remote'];
+const DIFF_COLORS = ['','#4a6741','#c9a84c','#c4703a','#8b1a1a','#2d2d8a'];
+const PARK_EXTRA = {
+  1:{diff:2,acts:["Hiking","Wildlife Viewing","Picnicking"],wildlife:["Gopher Tortoise","White-tailed Deer","Barred Owl","Indigo Snake"]},
+  2:{diff:4,acts:["Mountain Biking","Hiking","Fishing","Camping"],wildlife:["Bald Eagle","White-tailed Deer","Gopher Tortoise","Wild Turkey"]},
+  3:{diff:1,acts:["Hiking","Picnicking","Paddling","Swimming"],wildlife:["Florida Cooter","Osprey","Anhinga","River Otter"]},
+  4:{diff:1,acts:["Horseback Riding","Beach","Fishing"],wildlife:["Loggerhead Sea Turtle","Ghost Crab","Brown Pelican","Osprey"]},
+  5:{diff:1,acts:["Beach","Snorkeling","Hiking","Kayaking"],wildlife:["Loggerhead Sea Turtle","Gopher Tortoise","Painted Bunting","Least Tern"]},
+  6:{diff:1,acts:["Beach","Shelling","Snorkeling"],wildlife:["Osprey","Roseate Spoonbill","Brown Pelican","Nurse Shark"]},
+  7:{diff:2,acts:["Hiking","Paddling","Wildlife Viewing"],wildlife:["Florida Black Bear","Bobcat","White-tailed Deer","Swallow-tailed Kite"]},
+  8:{diff:1,acts:["Beach","Snorkeling","Kayaking","Camping"],wildlife:["West Indian Manatee","White-crowned Pigeon","Magnificent Frigatebird","Sea Turtle"]},
+  9:{diff:2,acts:["Beach","Kiteboarding","Fishing"],wildlife:["Swallow-tailed Kite","Gopher Tortoise","Eastern Indigo Snake","Diamondback Terrapin"]},
+  10:{diff:1,acts:["Museum Tour","Paddling","Birding"],wildlife:["Great Blue Heron","Brown Pelican","Osprey","Bottlenose Dolphin"]},
+  11:{diff:1,acts:["Camping","Fishing","Kayaking"],wildlife:["Osprey","Bald Eagle","Blue Crab","Redfish"]},
+  12:{diff:3,acts:["Kayaking","Whitewater","Hiking","Camping"],wildlife:["Black Bear","River Otter","Barred Owl","Wood Duck"]},
+  13:{diff:2,acts:["Beach","Wildlife Viewing","Shelling"],wildlife:["Loggerhead Sea Turtle","Roseate Spoonbill","Bald Eagle","Diamondback Terrapin"]},
+  14:{diff:1,acts:["Beach","Snorkeling","Lighthouse Tour"],wildlife:["Loggerhead Sea Turtle","Green Sea Turtle","Brown Pelican","Magnificent Frigatebird"]},
+  15:{diff:1,acts:["Biking","Camping","Paddling"],wildlife:["Gopher Tortoise","Painted Bunting","Osprey","American Oystercatcher"]},
+  16:{diff:1,acts:["Biking","Walking","Birding"],wildlife:["Red-cockaded Woodpecker","Gopher Tortoise","White-tailed Deer","Monarch Butterfly"]},
+  17:{diff:2,acts:["Canoeing","Kayaking","Camping","Fishing"],wildlife:["River Otter","Wood Duck","Barbour's Map Turtle","Barred Owl"]},
+  18:{diff:1,acts:["Swimming","Snorkeling","Manatee Viewing"],wildlife:["West Indian Manatee","Florida Softshell Turtle","Anhinga","Largemouth Bass"]},
+  19:{diff:2,acts:["Hiking","Birding","Wildlife Viewing"],wildlife:["Pileated Woodpecker","Barred Owl","Swallow-tailed Kite","White-tailed Deer"]},
+  20:{diff:2,acts:["Historic Tour","Kayaking","Hiking"],wildlife:["American Alligator","Florida Softshell Turtle","Anhinga","Wood Duck"]},
+  21:{diff:1,acts:["Beach","Shelling","Kayaking"],wildlife:["Osprey","Roseate Spoonbill","Loggerhead Sea Turtle","Gulf Flounder"]},
+  22:{diff:1,acts:["Beach","Shelling","Camping","Kayaking"],wildlife:["Bald Eagle","Roseate Spoonbill","Nurse Shark","Loggerhead Sea Turtle"]},
+  23:{diff:1,acts:["Museum","Birding","Fishing"],wildlife:["Roseate Spoonbill","Snook","Spotted Sea Trout","Bald Eagle"]},
+  24:{diff:1,acts:["Paddling","Fishing","Birding"],wildlife:["Roseate Spoonbill","West Indian Manatee","Snook","Bald Eagle"]},
+  25:{diff:2,acts:["Paddling","Equestrian","Fishing","Camping"],wildlife:["Sandhill Crane","Crested Caracara","White-tailed Deer","Wild Turkey"]},
+  26:{diff:3,acts:["Paddling","Kayaking","Fishing","Camping"],wildlife:["Florida Royal Palm","Wood Stork","Roseate Spoonbill","American Crocodile"]},
+  27:{diff:1,acts:["Museum","Picnicking","Birding"],wildlife:["Bald Eagle","American Alligator","Florida Cooter","Osprey"]},
+  28:{diff:1,acts:["Beach","Shelling","Swimming","Kayaking"],wildlife:["Loggerhead Sea Turtle","Osprey","Bald Eagle","Lightning Whelk"]},
+  29:{diff:1,acts:["Swimming","Snorkeling","Dining","Hiking"],wildlife:["American Alligator","Florida Gar","Florida Cooter","Anhinga"]},
+  30:{diff:2,acts:["Hiking","Geology","Picnicking"],wildlife:["Barred Owl","Pileated Woodpecker","Five-lined Skink","Eastern Towhee"]},
+  31:{diff:1,acts:["Living History","Hiking","Fishing"],wildlife:["American Alligator","White-tailed Deer","Sandhill Crane","Barred Owl"]},
+  32:{diff:2,acts:["Kayaking","Paddling","Birding"],wildlife:["American Alligator","Wood Duck","Painted Bunting","Bald Eagle"]},
+  33:{diff:2,acts:["Paddling","Fishing","Hiking","Birding"],wildlife:["American Alligator","Wood Duck","Pileated Woodpecker","River Otter"]},
+  34:{diff:1,acts:["Camping","Fishing","Birding"],wildlife:["Bald Eagle","Osprey","Redfish","Speckled Trout"]},
+  35:{diff:1,acts:["Wildlife Viewing","Swimming","Manatee Observation"],wildlife:["West Indian Manatee","American Alligator","Florida Panther","Flamingo"]},
+  36:{diff:3,acts:["Hiking","Wildlife Viewing","Birding","Photography"],wildlife:["Florida Panther","Ghost Orchid","Wood Stork","Florida Black Bear"]},
+  37:{diff:1,acts:["Hiking","Waterfall","Swimming","Camping"],wildlife:["Barred Owl","White-tailed Deer","Five-lined Skink","Wood Duck"]},
+  38:{diff:1,acts:["Swimming","Snorkeling","Paddling"],wildlife:["West Indian Manatee","River Otter","Florida Cooter","Limpkin"]},
+  39:{diff:1,acts:["Cave Tour","Camping","Fishing","Paddling"],wildlife:["Cave Bat","Barred Owl","White-tailed Deer","Wood Duck"]},
+  40:{diff:2,acts:["Hiking","Birding","Beach","Camping"],wildlife:["Loggerhead Sea Turtle","Painted Bunting","Bald Eagle","American Oystercatcher"]},
+  41:{diff:1,acts:["Fort Tour","Swimming","Camping","Fishing"],wildlife:["Gopher Tortoise","Painted Bunting","Loggerhead Sea Turtle","Ghost Crab"]},
+  42:{diff:1,acts:["Swimming","Hiking","Camping"],wildlife:["American Alligator","White-tailed Deer","Gopher Tortoise","Barred Owl"]},
+  43:{diff:2,acts:["Historic Tour","Kayaking","Birding"],wildlife:["Painted Bunting","American Oystercatcher","Bald Eagle","Clapper Rail"]},
+  44:{diff:1,acts:["Museum","Birding","Picnicking"],wildlife:["Great Blue Heron","Osprey","White Ibis","Clapper Rail"]},
+  45:{diff:1,acts:["Beach","Snorkeling","Surfing","Fishing"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Osprey","Redfish"]},
+  46:{diff:1,acts:["Fort Tour","Beach","Snorkeling"],wildlife:["Brown Pelican","Magnificent Frigatebird","Loggerhead Sea Turtle","Elkhorn Coral"]},
+  47:{diff:2,acts:["Fishing","Hiking","Paddling","Camping"],wildlife:["Osprey","Bald Eagle","Redfish","Flounder"]},
+  48:{diff:1,acts:["Beach","Camping","Birding","Fishing"],wildlife:["Loggerhead Sea Turtle","Painted Bunting","Ghost Crab","River Otter"]},
+  49:{diff:1,acts:["Shelling","Fishing","Camping","Paddling"],wildlife:["Osprey","Bald Eagle","Roseate Spoonbill","Spotted Sea Trout"]},
+  50:{diff:2,acts:["Historic Tour","Birding","Kayaking"],wildlife:["American Oystercatcher","Painted Bunting","Bald Eagle","Clapper Rail"]},
+  51:{diff:1,acts:["Beach","Surfing","Fishing","Snorkeling"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Osprey","Redfish"]},
+  52:{diff:1,acts:["Fort Tour","Beach","Snorkeling","Camping"],wildlife:["Brown Pelican","Loggerhead Sea Turtle","Elkhorn Coral","Magnificent Frigatebird"]},
+  53:{diff:1,acts:["Fishing","Camping","Birding","Hiking"],wildlife:["Osprey","Bald Eagle","Redfish","Longleaf Pine"]},
+  54:{diff:1,acts:["Beach","Camping","Birding"],wildlife:["Osprey","Bald Eagle","Loggerhead Sea Turtle","Ghost Crab"]},
+  55:{diff:1,acts:["Cave Tour","Camping","Fishing","Hiking"],wildlife:["Cave Bat","Wood Duck","Barred Owl","Alligator"]},
+  56:{diff:2,acts:["Hiking","Birding","Beach","Camping"],wildlife:["Loggerhead Sea Turtle","Painted Bunting","Bald Eagle","American Oystercatcher"]},
+  57:{diff:2,acts:["Fort Tour","Swimming","Camping","Fishing"],wildlife:["Gopher Tortoise","Painted Bunting","Loggerhead Sea Turtle","Ghost Crab"]},
+  58:{diff:2,acts:["Historic Tour","Kayaking","Birding"],wildlife:["Painted Bunting","Bald Eagle","American Oystercatcher","Brown Pelican"]},
+  59:{diff:1,acts:["Museum","Birding","Fishing"],wildlife:["Great Blue Heron","Osprey","Bald Eagle","Florida Cooter"]},
+  60:{diff:1,acts:["Snorkeling","Glass-Bottom Boat","Kayaking"],wildlife:["Elkhorn Coral","Queen Angelfish","Green Sea Turtle","Nurse Shark"]},
+  61:{diff:2,acts:["Boat Tour","Hiking","Kayaking","Camping"],wildlife:["Florida Scrub-Jay","West Indian Manatee","American Alligator","River Otter"]},
+  62:{diff:2,acts:["Hiking","Stargazing","Horseback Riding","Camping"],wildlife:["Florida Grasshopper Sparrow","Crested Caracara","American Bison","Wild Horse"]},
+  63:{diff:1,acts:["Historic Tour","Paddling","Birding"],wildlife:["Swallow-tailed Kite","Bald Eagle","River Otter","American Alligator"]},
+  64:{diff:1,acts:["Beach","Paddling","Birding"],wildlife:["Osprey","Bald Eagle","Loggerhead Sea Turtle","Snowy Plover"]},
+  65:{diff:1,acts:["Hiking","Biking","Paddling","Birding"],wildlife:["Gopher Tortoise","Painted Bunting","Anhinga","Great Blue Heron"]},
+  66:{diff:1,acts:["Tubing","Snorkeling","Swimming"],wildlife:["Ichetucknee Cooter","West Indian Manatee","Florida Gar","Anhinga"]},
+  67:{diff:1,acts:["Boat Access","Hiking","Kayaking"],wildlife:["White-crowned Pigeon","Mangrove Cuckoo","Magnificent Frigatebird","Barracuda"]},
+  68:{diff:1,acts:["Beach","Snorkeling","Boardwalk","Birding"],wildlife:["Loggerhead Sea Turtle","Green Sea Turtle","Leatherback Sea Turtle","Osprey"]},
+  69:{diff:1,acts:["Museum","Birding","Fishing"],wildlife:["Osprey","Brown Pelican","Eastern Oyster","Great Blue Heron"]},
+  70:{diff:1,acts:["Snorkeling","Glass-Bottom Boat","Diving"],wildlife:["Elkhorn Coral","Queen Parrotfish","Green Sea Turtle","Nurse Shark"]},
+  71:{diff:2,acts:["Boat Tour","Hiking","Kayaking","Camping"],wildlife:["Florida Scrub-Jay","West Indian Manatee","River Otter","Bald Eagle"]},
+  72:{diff:2,acts:["Hiking","Stargazing","Camping","Horseback Riding"],wildlife:["American Bison","Wild Spanish Horse","Crested Caracara","Sandhill Crane"]},
+  73:{diff:1,acts:["Boat Access","Hiking","Birding"],wildlife:["Calusa Shell Mound","Osprey","Roseate Spoonbill","American Crocodile"]},
+  74:{diff:2,acts:["Hiking","Tram Tour","Camping","Birding"],wildlife:["American Alligator","Crested Caracara","Sandhill Crane","Bald Eagle"]},
+  75:{diff:1,acts:["Museum","Hiking","Birding"],wildlife:["Bald Eagle","Osprey","Sandhill Crane","Monarch Butterfly"]},
+  76:{diff:1,acts:["Tubing","Swimming","Snorkeling","Camping"],wildlife:["West Indian Manatee","Florida Spotted Gar","Rainbow Trout","Anhinga"]},
+  77:{diff:1,acts:["Garden Tour","Hiking","Photography"],wildlife:["Sandhill Crane","Barred Owl","Great Blue Heron","Limpkin"]},
+  78:{diff:2,acts:["Hiking","Kayaking","Snorkeling","Camping"],wildlife:["West Indian Manatee","River Otter","Swallow-tailed Kite","Sandhill Crane"]},
+  79:{diff:1,acts:["Fishing","Camping","Hiking"],wildlife:["Bald Eagle","Osprey","Redfish","Flounder"]},
+  80:{diff:1,acts:["Living History","Birding","Hiking"],wildlife:["Bald Eagle","Crested Caracara","Sandhill Crane","Snail Kite"]},
+  81:{diff:2,acts:["Hiking","Equestrian","Paddling","Camping"],wildlife:["River Otter","American Alligator","Florida Softshell Turtle","Wood Duck"]},
+  82:{diff:1,acts:["Wildlife Viewing","Kayaking","Hiking"],wildlife:["Rhesus Macaque","West Indian Manatee","Florida Gar","Anhinga"]},
+  83:{diff:1,acts:["Glass-Bottom Boat","Swimming","Hiking"],wildlife:["Rhesus Macaque","Florida Gar","Anhinga","Great Blue Heron"]},
+  84:{diff:1,acts:["Beach","Snorkeling","Camping","Fishing"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Osprey","Snook"]},
+  85:{diff:3,acts:["Hiking","Raptor Watching","Primitive Camping","Beach"],wildlife:["Peregrine Falcon","Loggerhead Sea Turtle","Ghost Crab","Snowy Plover"]},
+  86:{diff:1,acts:["Boat Access","Snorkeling","Birding","Fishing"],wildlife:["Loggerhead Sea Turtle","Osprey","Roseate Spoonbill","Spotted Sea Trout"]},
+  87:{diff:1,acts:["Museum","Birding","Hiking"],wildlife:["Monarch Butterfly","Bald Eagle","Osprey","Clapper Rail"]},
+  88:{diff:2,acts:["Beach","Camping","Birding"],wildlife:["Loggerhead Sea Turtle","Peregrine Falcon","Ghost Crab","Brown Pelican"]},
+  89:{diff:1,acts:["Biking","Hiking","Birding"],wildlife:["Red-cockaded Woodpecker","Gopher Tortoise","White-tailed Deer","Monarch Butterfly"]},
+  90:{diff:1,acts:["Beach","Swimming","Camping"],wildlife:["Loggerhead Sea Turtle","Ghost Crab","Osprey","Snowy Plover"]},
+  91:{diff:2,acts:["Hiking","Kayaking","Camping","Birding"],wildlife:["Bald Eagle","Roseate Spoonbill","American Alligator","Wood Stork"]},
+  92:{diff:1,acts:["Swimming","Kayaking","Hiking","Birding"],wildlife:["West Indian Manatee","Florida Black Bear","River Otter","American Alligator"]},
+  93:{diff:2,acts:["Paddling","Snorkeling","Fishing"],wildlife:["West Indian Manatee","Spotted Sea Trout","Redfish","Osprey"]},
+  94:{diff:1,acts:["Geology Tour","Hiking","Snorkeling"],wildlife:["White-crowned Pigeon","Mangrove Cuckoo","Fossilized Coral","Barracuda"]},
+  95:{diff:1,acts:["Paddling","Fishing","Birding"],wildlife:["Wood Stork","American Crocodile","Roseate Spoonbill","Redfish"]},
+  96:{diff:1,acts:["Museum Tour","Historic Walking"],wildlife:["Brown Anole","Gopher Tortoise","Osprey","Brown Pelican"]},
+  97:{diff:1,acts:["Historic Tour","Hiking"],wildlife:["Gopher Tortoise","Osprey","Brown Pelican","Eastern Oyster"]},
+  98:{diff:1,acts:["Wildlife Viewing","Hiking","Birding"],wildlife:["Loggerhead Sea Turtle","Green Sea Turtle","Leatherback Sea Turtle","Bald Eagle"]},
+  99:{diff:2,acts:["Beach","Birding","Kayaking"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Bald Eagle","Atlantic Sturgeon"]},
+  100:{diff:1,acts:["Battlefield Walk","Museum","Hiking"],wildlife:["Red-cockaded Woodpecker","White-tailed Deer","Wild Turkey","Gopher Tortoise"]},
+  101:{diff:1,acts:["Swimming","Snorkeling","Manatee Viewing"],wildlife:["West Indian Manatee","Florida Spotted Gar","Anhinga","Limpkin"]},
+  102:{diff:2,acts:["Beach","Birding","Shelling","Primitive Camping"],wildlife:["Peregrine Falcon","Loggerhead Sea Turtle","Snowy Plover","Ghost Crab"]},
+  103:{diff:1,acts:["Hiking","Kayaking","Historic Tour"],wildlife:["American Alligator","Florida Softshell Turtle","Barred Owl","White-tailed Deer"]},
+  104:{diff:2,acts:["Wildlife Viewing","Hiking","Photography"],wildlife:["American Bison","Wild Spanish Horse","American Alligator","Sandhill Crane"]},
+  105:{diff:1,acts:["Swimming","Snorkeling","Hiking"],wildlife:["Barred Owl","Pileated Woodpecker","Wood Duck","River Otter"]},
+  106:{diff:2,acts:["Birding","Paddling","Hiking"],wildlife:["Florida Scrub-Jay","Swallow-tailed Kite","Gopher Tortoise","Bald Eagle"]},
+  107:{diff:1,acts:["Birding","Paddling","Fishing"],wildlife:["Snook","Florida Scrub-Jay","Gopher Tortoise","Redfish"]},
+  108:{diff:1,acts:["Tram Tour","Hiking","Camping","Birding"],wildlife:["American Alligator","Crested Caracara","Sandhill Crane","Bald Eagle"]},
+  109:{diff:1,acts:["Fishing","Camping","Paddling"],wildlife:["Bald Eagle","Osprey","Redfish","River Otter"]},
+  110:{diff:1,acts:["Biking","Kayaking","Camping","Fishing"],wildlife:["River Otter","American Alligator","Florida Softshell Turtle","Wood Duck"]},
+  111:{diff:1,acts:["Wildlife Viewing","Snorkeling","Biking"],wildlife:["Rhesus Macaque","West Indian Manatee","Florida Gar","Anhinga"]},
+  112:{diff:1,acts:["Beach","Snorkeling","Camping"],wildlife:["Loggerhead Sea Turtle","Ghost Crab","Brown Pelican","Osprey"]},
+  113:{diff:2,acts:["Paddling","Equestrian","Camping"],wildlife:["River Otter","American Alligator","Florida Softshell Turtle","Wood Duck"]},
+  114:{diff:1,acts:["Beach","Camping","Birding"],wildlife:["Loggerhead Sea Turtle","Ghost Crab","Osprey","Snowy Plover"]},
+  115:{diff:1,acts:["Swimming","Snorkeling","Paddling"],wildlife:["West Indian Manatee","River Otter","Florida Cooter","Limpkin"]},
+  116:{diff:1,acts:["Music","Museum","Camping"],wildlife:["Sandhill Crane","Limpkin","American Alligator","River Otter"]},
+  117:{diff:1,acts:["Paddling","Fishing","Camping"],wildlife:["American Alligator","Florida Cooter","Sandhill Crane","Limpkin"]},
+  118:{diff:2,acts:["Fishing","Hiking","Camping","Birding"],wildlife:["Bald Eagle","Osprey","Largemouth Bass","Barred Owl"]},
+  119:{diff:3,acts:["Hiking","Scenic Drive","Historic Tour"],wildlife:["Florida Torreya","Bald Eagle","White-tailed Deer","Wild Turkey"]},
+  120:{diff:2,acts:["Paddling","Fishing","Equestrian"],wildlife:["American Alligator","Florida Cooter","River Otter","Limpkin"]},
+  121:{diff:1,acts:["Archaeological Tour","Manatee Viewing","Kayaking"],wildlife:["West Indian Manatee","American Alligator","Osprey","Brown Pelican"]},
+  122:{diff:1,acts:["Fishing","Camping","Birding"],wildlife:["Largemouth Bass","Bald Eagle","Osprey","Sandhill Crane"]},
+  123:{diff:1,acts:["Boat Access","Hiking","Birding"],wildlife:["Calusa Shell Mound","Osprey","Roseate Spoonbill","American Crocodile"]},
+  124:{diff:1,acts:["Beach","Shelling","Snorkeling"],wildlife:["Loggerhead Sea Turtle","Osprey","Brown Pelican","Ghost Crab"]},
+  125:{diff:3,acts:["Paddling","Fishing","Wildlife Viewing"],wildlife:["American Alligator","Atlantic Sturgeon","Wood Stork","River Otter"]},
+  126:{diff:1,acts:["Snorkeling","Fossil Hunting","Birding"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Osprey","Ghost Crab"]},
+  127:{diff:1,acts:["Swimming","Snorkeling","Diving"],wildlife:["West Indian Manatee","River Otter","Steamboat Wreck","Florida Gar"]},
+  128:{diff:1,acts:["Archaeological Tour","Hiking","Birding"],wildlife:["Gopher Tortoise","Painted Bunting","Brown Pelican","Osprey"]},
+  129:{diff:2,acts:["Wildlife Viewing","Hiking","Photography","Birding"],wildlife:["American Bison","Wild Spanish Horse","American Alligator","Whooping Crane"]},
+  130:{diff:1,acts:["Beach","Camping","Birding","Shelling"],wildlife:["Perdido Key Beach Mouse","Snowy Plover","Least Tern","Ghost Crab"]},
+  131:{diff:1,acts:["Battlefield Walk","Hiking","Birding"],wildlife:["Barred Owl","Pileated Woodpecker","White-tailed Deer","Wild Turkey"]},
+  132:{diff:1,acts:["Kayaking","Fishing","Camping"],wildlife:["Bald Eagle","Osprey","Redfish","Flounder"]},
+  133:{diff:1,acts:["Museum","Camping","Paddling"],wildlife:["American Alligator","Florida Cooter","Anhinga","Limpkin"]},
+  134:{diff:1,acts:["Manatee Viewing","Kayaking","Swimming"],wildlife:["West Indian Manatee","American Alligator","Osprey","Brown Pelican"]},
+  135:{diff:2,acts:["Airboat Tour","Tram Tour","Birding"],wildlife:["American Alligator","Crested Caracara","Sandhill Crane","Bald Eagle"]},
+  136:{diff:1,acts:["Beach","Fishing","Paddling","Birding"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Osprey","Spotted Sea Trout"]},
+  137:{diff:1,acts:["Historic Tour","Hiking","Photography"],wildlife:["Gopher Tortoise","Osprey","Brown Pelican","Eastern Oyster"]},
+  138:{diff:1,acts:["Lighthouse Tour","Birding","Fishing"],wildlife:["Monarch Butterfly","Bald Eagle","Osprey","Redfish"]},
+  139:{diff:3,acts:["Kayaking","Hiking","Wildlife Viewing","Birding"],wildlife:["American Alligator","American Crocodile","West Indian Manatee","Roseate Spoonbill"]},
+  140:{diff:2,acts:["Boat Access","Wildlife Viewing","Birding"],wildlife:["Wood Stork","Roseate Spoonbill","American Crocodile","Bald Eagle"]},
+  141:{diff:2,acts:["Hiking","Wildlife Viewing","Birding"],wildlife:["American Bison","Wild Spanish Horse","American Alligator","Sandhill Crane"]},
+  142:{diff:3,acts:["Ferry/Seaplane","Snorkeling","Fort Tour","Camping"],wildlife:["Sooty Tern","Loggerhead Sea Turtle","Nurse Shark","Elkhorn Coral"]},
+  143:{diff:1,acts:["Swimming","Tubing","Kayaking"],wildlife:["West Indian Manatee","Cave Bat","Florida Gar","River Otter"]},
+  144:{diff:1,acts:["Historic Tour","Paddling","Birding"],wildlife:["Bald Eagle","Anhinga","Florida Cooter","Osprey"]},
+  145:{diff:1,acts:["Snorkeling","Fossil Hunting","Hiking"],wildlife:["Loggerhead Sea Turtle","Fossilized Coral","Ghost Crab","Osprey"]},
+  146:{diff:1,acts:["Swimming","Snorkeling","Cave Diving"],wildlife:["West Indian Manatee","Cave Bat","River Otter","Florida Gar"]},
+  147:{diff:2,acts:["Paddling","Fishing","Camping","Birding"],wildlife:["Bald Eagle","Osprey","Redfish","Flounder"]},
+  148:{diff:3,acts:["Primitive Camping","Hiking","Wildlife Viewing"],wildlife:["Florida Black Bear","American Alligator","Barred Owl","Wood Duck"]},
+  149:{diff:2,acts:["Beach","Raptor Watching","Shelling"],wildlife:["Peregrine Falcon","Loggerhead Sea Turtle","Ghost Crab","Snowy Plover"]},
+  150:{diff:2,acts:["Hiking","Birding","Wildlife Viewing"],wildlife:["White-crowned Pigeon","Mangrove Cuckoo","Eastern Indigo Snake","Key West Quail-Dove"]},
+  151:{diff:1,acts:["Hiking","Birding","Wildlife Viewing"],wildlife:["Florida Scrub-Jay","Gopher Tortoise","Florida Mouse","Florida Scrub Lizard"]},
+  152:{diff:1,acts:["Swimming","Paddling","Manatee Viewing"],wildlife:["West Indian Manatee","Limpkin","American Alligator","Florida Gar"]},
+  153:{diff:3,acts:["Camping","Hiking","Fishing","Hunting"],wildlife:["Red-cockaded Woodpecker","Florida Black Bear","White-tailed Deer","Wild Turkey"]},
+  154:{diff:2,acts:["Hiking","Camping","Paddling"],wildlife:["Black Bear","American Alligator","Barred Owl","Wood Duck"]},
+  155:{diff:1,acts:["Wildlife Viewing","Hiking","Birding"],wildlife:["American Alligator","Bald Eagle","Sandhill Crane","Limpkin"]},
+  156:{diff:2,acts:["Camping","Hiking","Fishing"],wildlife:["Florida Black Bear","White-tailed Deer","Wild Turkey","Gopher Tortoise"]},
+  157:{diff:1,acts:["Swimming","Snorkeling","Kayaking"],wildlife:["West Indian Manatee","River Otter","Florida Cooter","Limpkin"]},
+  158:{diff:2,acts:["Wildlife Viewing","Hiking","Birding"],wildlife:["American Bison","Wild Spanish Horse","Sandhill Crane","Whooping Crane"]},
+  159:{diff:1,acts:["Biking","Kayaking","Wildlife Viewing"],wildlife:["American Alligator","Bald Eagle","Sandhill Crane","Limpkin"]},
+  160:{diff:1,acts:["Rocket Viewing","Beach","Birding"],wildlife:["Loggerhead Sea Turtle","Brown Pelican","Bald Eagle","Atlantic Sturgeon"]},
+  161:{diff:1,acts:["Paddling","Birding","Hiking"],wildlife:["Carnivorous Plants","Atala Butterfly","Wood Stork","Roseate Spoonbill"]},
+  162:{diff:2,acts:["Hiking","Birding","Wildlife Viewing"],wildlife:["American Bison","Wild Spanish Horse","American Alligator","Swallow-tailed Kite"]},
+  163:{diff:2,acts:["Boat Tour","Kayaking","Camping","Fishing"],wildlife:["Florida Scrub-Jay","West Indian Manatee","River Otter","American Alligator"]},
+  164:{diff:1,acts:["Swimming","Paddling","Manatee Viewing"],wildlife:["West Indian Manatee","Limpkin","American Alligator","Florida Gar"]},
+  165:{diff:1,acts:["Wildlife Viewing","Kayaking","Photography"],wildlife:["Rhesus Macaque","West Indian Manatee","Florida Gar","Anhinga"]},
+  166:{diff:2,acts:["Wildlife Viewing","Hiking","Birding"],wildlife:["American Bison","Wild Spanish Horse","Sandhill Crane","Wild Azalea"]},
+  167:{diff:1,acts:["Paddling","Birding","Wildlife Viewing"],wildlife:["Carnivorous Plants","Atala Butterfly","Roseate Spoonbill","Wood Stork"]},
+  168:{diff:1,acts:["Fossil Hunting","Beach","Shelling"],wildlife:["Fossilized Shark Teeth","Snowy Plover","Ghost Crab","Loggerhead Sea Turtle"]},
+  169:{diff:1,acts:["Hiking","Kayaking","Camping"],wildlife:["American Alligator","Florida Softshell Turtle","River Otter","Wood Duck"]},
+  170:{diff:2,acts:["Wildlife Viewing","Hiking","Birding"],wildlife:["American Bison","Wild Spanish Horse","American Alligator","Swallow-tailed Kite"]},
+  171:{diff:1,acts:["Wildlife Viewing","Boating","Birding"],wildlife:["Brown Pelican","Osprey","Bald Eagle","American Alligator"]},
+  172:{diff:2,acts:["Swimming","Tubing","Kayaking"],wildlife:["West Indian Manatee","River Otter","Florida Cooter","Barred Owl"]},
+  173:{diff:1,acts:["Living History","Museum","Walking"],wildlife:["White-tailed Deer","Wild Turkey","Gopher Tortoise","Barred Owl"]},
+  174:{diff:3,acts:["Hiking","Scenic Views","Historic Tour"],wildlife:["Florida Torreya","Bald Eagle","White-tailed Deer","Wild Turkey"]},
+  175:{diff:2,acts:["Kayaking","Paddling","Birding"],wildlife:["American Alligator","Bottlenose Dolphin","West Indian Manatee","Bald Eagle"]},
+};
+
+const CHALLENGES = [
+  {id:'nassau',name:'Nassau Native',emoji:'🏠',desc:'Visit all 4 Nassau County parks',filter:p=>p.county.toLowerCase().includes('nassau'),count:4},
+  {id:'keys',name:'Keys Hopper',emoji:'🐠',desc:'Visit 5 Florida Keys parks',filter:p=>p.county==='Monroe',count:5},
+  {id:'springs',name:'Spring Hunter',emoji:'💧',desc:'Visit 10 spring parks',filter:p=>p.name.toLowerCase().includes('spring'),count:10},
+  {id:'panhandle',name:'Panhandle Pioneer',emoji:'⚓',desc:'Visit 10 Panhandle parks',filter:p=>p.region==='Panhandle',count:10},
+  {id:'first10',name:'First Steps',emoji:'👣',desc:'Visit your first 10 parks',filter:()=>true,count:10},
+  {id:'history',name:'History Buff',emoji:'🏛️',desc:'Visit 5 historic/battlefield parks',filter:p=>p.name.toLowerCase().includes('historic')||p.name.toLowerCase().includes('battlefield')||p.name.toLowerCase().includes('ruins'),count:5},
+  {id:'beach',name:'Beach Bum',emoji:'🏖️',desc:'Visit 10 beach parks',filter:p=>{const e=PARK_EXTRA[p.id];return e&&e.acts.some(a=>a.toLowerCase().includes('beach'));},count:10},
+  {id:'wildlife',name:'Wildlife Watcher',emoji:'🦅',desc:'Visit 15 wildlife-rich parks',filter:p=>{const e=PARK_EXTRA[p.id];return e&&e.acts.some(a=>a.toLowerCase().includes('wildlife'));},count:15},
+  {id:'quarter',name:'Quarter Done',emoji:'🌟',desc:'Visit 44 parks (25%)',filter:()=>true,count:44},
+  {id:'half',name:'Halfway There',emoji:'🔥',desc:'Visit 88 parks (50%)',filter:()=>true,count:88},
+  {id:'century',name:'Century Badge',emoji:'💯',desc:'Visit 100 parks!',filter:()=>true,count:100},
+  {id:'complete',name:'Grand Slam',emoji:'🏆',desc:'Visit all 175 Florida State Parks!',filter:()=>true,count:175},
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let profiles = JSON.parse(localStorage.getItem('fl-profiles') || 'null') || [{id:'p1',name:'Me',color:'#c9a84c',visited:[],dates:{},journal:{},wildlife:{}}];
+let activeProfileId = localStorage.getItem('fl-active-profile') || profiles[0].id;
+let activeFilter = 'all';
+let searchQuery = '';
+let activeTab = 'parks';
+let currentModalParkId = null;
+let userLat = null, userLng = null;
+
+// Legacy migration
+(function(){
+  const lv = localStorage.getItem('fl-parks-visited');
+  if(lv && profiles[0].visited.length===0){
+    profiles[0].visited = JSON.parse(lv);
+    profiles[0].dates = JSON.parse(localStorage.getItem('fl-parks-dates')||'{}');
+    saveProfiles();
+  }
+})();
+
+function currentProfile(){ return profiles.find(p=>p.id===activeProfileId)||profiles[0]; }
+function saveProfiles(){ localStorage.setItem('fl-profiles',JSON.stringify(profiles)); localStorage.setItem('fl-active-profile',activeProfileId); }
+function saveVisited(){ saveProfiles(); }
+// Shim for GPS code
+Object.defineProperty(window,'visited',{get:()=>currentProfile().visited,set:v=>{currentProfile().visited=v;}});
+Object.defineProperty(window,'visitDates',{get:()=>currentProfile().dates,set:v=>{currentProfile().dates=v;}});
+
+// ── PROFILES ──
+function renderProfiles(){
+  const bar = document.getElementById('profiles-bar');
+  bar.innerHTML = profiles.map(p=>'<div class="profile-chip'+(p.id===activeProfileId?' active':'')+'" style="'+(p.id===activeProfileId?'background:'+p.color+';border-color:'+p.color+';color:#1a1008':'')+'" onclick="setProfile(\''+p.id+'\')"><div class="profile-dot" style="background:'+p.color+'"></div>'+p.name+'</div>').join('')+'<button class="add-profile-btn" onclick="addProfile()">+ Add Person</button>';
+}
+function setProfile(id){ activeProfileId=id; saveProfiles(); renderProfiles(); updateStats(); renderBadges(); renderGrid(); }
+function addProfile(){
+  const name=prompt('Name (e.g. Graysen, Lawsen):');
+  if(!name||!name.trim())return;
+  const colors=['#4a7fa5','#c4703a','#4a6741','#9a3060','#2d7a3a','#7a5020'];
+  profiles.push({id:'p'+Date.now(),name:name.trim(),color:colors[profiles.length%colors.length],visited:[],dates:{},journal:{},wildlife:{}});
+  setProfile(profiles[profiles.length-1].id);
+}
+
+// ── TABS ──
+function switchTab(tab){
+  activeTab=tab;
+  const tabs=['parks','badges','challenges','journal'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='badges')renderBadgesTab();
+  if(tab==='challenges')renderChallenges();
+  if(tab==='journal')renderJournalTab();
+}
+
+function switchModalTab(btn, tab){
+  document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('mtab-'+tab).classList.add('active');
+  if(tab==='directions')updateDistDisplay();
+}
+
+// ── STATS ──
+function updateStats(){
+  const prof=currentProfile();
+  const v=prof.visited.length, t=PARKS.length;
+  document.getElementById('visited-count').textContent=v;
+  document.getElementById('total-count').textContent=t;
+  document.getElementById('pct-count').textContent=Math.round(v/t*100)+'%';
+}
+
+// ── BADGES ──
+function renderBadges(){
+  const prof=currentProfile();
+  const row=document.getElementById('badges-row');
+  if(!prof.visited.length){row.innerHTML='<div class="empty-badges">Visit parks to earn badges!</div>';return;}
+  row.innerHTML=prof.visited.map(id=>{const p=PARKS.find(x=>x.id===id);return p?'<div class="mini-badge" title="'+p.name+'" onclick="openModal('+p.id+',false)">'+p.emoji+'</div>':''}).join('');
+}
+function renderBadgesTab(){
+  const prof=currentProfile();
+  const row=document.getElementById('badges-tab-row');
+  if(!prof.visited.length){row.innerHTML='<div class="empty-badges">Visit parks to earn badges!</div>';return;}
+  row.innerHTML=prof.visited.map(id=>{const p=PARKS.find(x=>x.id===id);return p?'<div class="mini-badge" title="'+p.name+'" onclick="openModal('+p.id+',false)">'+p.emoji+'</div>':''}).join('');
+}
+
+// ── FILTER ──
+function getFilteredParks(){
+  const prof=currentProfile();
+  return PARKS.filter(p=>{
+    const ms=p.name.toLowerCase().includes(searchQuery.toLowerCase())||p.county.toLowerCase().includes(searchQuery.toLowerCase());
+    const iv=prof.visited.includes(p.id);
+    if(activeFilter==='visited'&&!iv)return false;
+    if(activeFilter==='unvisited'&&iv)return false;
+    if(activeFilter==='nassau'&&!p.county.toLowerCase().includes('nassau'))return false;
+    return ms;
+  });
+}
+
+// ── GRID ──
+function renderGrid(){
+  const prof=currentProfile();
+  const grid=document.getElementById('grid');
+  const parks=getFilteredParks();
+  if(!parks.length){grid.innerHTML='<div class="no-results">🌿 No parks found.</div>';return;}
+  grid.innerHTML=parks.map(park=>{
+    const iv=prof.visited.includes(park.id);
+    const isN=park.county.toLowerCase().includes('nassau');
+    const ex=PARK_EXTRA[park.id];
+    const dc=ex?DIFF_COLORS[ex.diff]:'#4a6741';
+    const dl=ex?DIFF_LABELS[ex.diff]:'';
+    return '<div class="park-card'+(iv?' visited':'')+(isN?' nassau-highlight':'')+'" onclick="openModal('+park.id+','+(!iv)+')">'+
+      '<div class="card-banner" style="background:linear-gradient(135deg,'+park.color+'dd,'+park.color+'88)">'+
+      (iv?'<div class="visited-stamp">✓ Visited</div>':'')+
+      '<span style="font-size:52px;z-index:1;position:relative">'+park.emoji+'</span></div>'+
+      '<div class="card-body">'+
+      '<div class="park-region">'+park.region+'</div>'+
+      '<div class="park-name">'+park.name+(isN?'<span class="nassau-tag">Local</span>':'')+' </div>'+
+      '<div class="park-meta"><span class="diff-badge" style="background:'+dc+'">'+dl+'</span>'+(ex?ex.acts.slice(0,2).map(a=>'<span class="activity-tag">'+a+'</span>').join(''):'')+'</div>'+
+      '<div class="park-fact">'+park.fact+'</div>'+
+      '<div class="card-footer"><div class="park-county">📍 '+park.county+' Co.</div>'+
+      '<button class="visit-btn'+(iv?' visited-btn':'')+'" onclick="event.stopPropagation();toggleVisit('+park.id+')">'+(iv?'✓ Visited':'+ Mark Visited')+'</button></div>'+
+      '</div></div>';
+  }).join('');
+}
+
+// ── VISIT TOGGLE ──
+function toggleVisit(id){
+  const prof=currentProfile();
+  if(prof.visited.includes(id)){prof.visited=prof.visited.filter(v=>v!==id);delete prof.dates[id];}
+  else{prof.visited.push(id);prof.dates[id]=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});openModal(id,false);}
+  saveProfiles();updateStats();renderBadges();renderGrid();
+}
+
+// ── MODAL ──
+function openModal(id,shouldMark){
+  const park=PARKS.find(p=>p.id===id);
+  if(!park)return;
+  currentModalParkId=id;
+  const prof=currentProfile();
+  if(shouldMark&&!prof.visited.includes(id)){
+    prof.visited.push(id);
+    prof.dates[id]=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    saveProfiles();updateStats();renderBadges();renderGrid();
+  }
+  document.getElementById('badge-emoji').textContent=park.emoji;
+  document.getElementById('badge-emoji').style.background='radial-gradient(circle,'+park.color+'ff,'+park.color+'88)';
+  document.getElementById('modal-name').textContent=park.name;
+  document.getElementById('modal-region').textContent=park.region+' • '+park.county+' County';
+  const ex=PARK_EXTRA[id];
+  document.getElementById('modal-meta').innerHTML=ex?'<span class="diff-badge" style="background:'+DIFF_COLORS[ex.diff]+'">'+DIFF_LABELS[ex.diff]+'</span>'+ex.acts.slice(0,3).map(a=>'<span class="activity-tag">'+a+'</span>').join(''):'';
+  document.getElementById('modal-facts').innerHTML=park.facts.map(f=>'<div class="fact-item"><span class="fact-icon">'+f.icon+'</span><span>'+f.text+'</span></div>').join('');
+  renderWildlife(id);
+  document.getElementById('journal-text').value=(prof.journal&&prof.journal[id])||'';
+  document.getElementById('modal-date').textContent=prof.dates[id]?'Visited: '+prof.dates[id]:'';
+  // Reset to facts tab
+  document.querySelectorAll('.modal-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.querySelectorAll('.modal-tab-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+  // Stars
+  const burst=document.getElementById('stars-burst');burst.innerHTML='';
+  if(shouldMark){['⭐','✨','🌟','⭐','✨'].forEach((s,i)=>{const el=document.createElement('div');el.className='star';el.textContent=s;const a=(i/5)*360,r=80;el.style.setProperty('--tx',Math.cos(a*Math.PI/180)*r+'px');el.style.setProperty('--ty',Math.sin(a*Math.PI/180)*r+'px');el.style.animationDelay=i*0.08+'s';burst.appendChild(el);});}
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+document.getElementById('modal-close').addEventListener('click',()=>document.getElementById('modal-overlay').classList.remove('open'));
+document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('modal-overlay').classList.remove('open');});
+document.getElementById('search').addEventListener('input',e=>{searchQuery=e.target.value;renderGrid();});
+document.querySelectorAll('.filter-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');activeFilter=btn.dataset.filter;renderGrid();});});
+
+// ── WILDLIFE ──
+function renderWildlife(parkId){
+  const prof=currentProfile();const ex=PARK_EXTRA[parkId];if(!ex)return;
+  const checked=(prof.wildlife&&prof.wildlife[parkId])||[];
+  document.getElementById('modal-wildlife').innerHTML=ex.wildlife.map(w=>'<div class="wildlife-item'+(checked.includes(w)?' checked':'')+'" onclick="toggleWildlife('+parkId+',\''+w.replace(/'/g,"\\'")+'\')" ><div class="wildlife-check">'+(checked.includes(w)?'✓':'')+'</div><div class="wildlife-name">'+w+'</div></div>').join('');
+}
+function toggleWildlife(pid,animal){
+  const prof=currentProfile();if(!prof.wildlife)prof.wildlife={};if(!prof.wildlife[pid])prof.wildlife[pid]=[];
+  const i=prof.wildlife[pid].indexOf(animal);if(i>=0)prof.wildlife[pid].splice(i,1);else prof.wildlife[pid].push(animal);
+  saveProfiles();renderWildlife(pid);
+}
+
+// ── JOURNAL ──
+function saveJournal(){
+  const prof=currentProfile();if(!prof.journal)prof.journal={};
+  prof.journal[currentModalParkId]=document.getElementById('journal-text').value;
+  saveProfiles();
+  const s=document.getElementById('journal-saved');s.style.opacity='1';setTimeout(()=>s.style.opacity='0',1500);
+  if(activeTab==='journal')renderJournalTab();
+}
+function renderJournalTab(){
+  const prof=currentProfile();
+  const list=document.getElementById('journal-tab-list');
+  const entries=Object.entries(prof.journal||{}).filter(([,v])=>v&&v.trim());
+  if(!entries.length){list.innerHTML='<div class="journal-empty">📓 No entries yet.<br>Visit a park and add notes!</div>';return;}
+  list.innerHTML=entries.map(([id,text])=>{const park=PARKS.find(p=>p.id===parseInt(id));if(!park)return'';const prev=text.length>80?text.slice(0,80)+'…':text;return'<div class="journal-entry-card" onclick="openModal('+id+',false)"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:22px">'+park.emoji+'</span><div><div class="journal-entry-park">'+park.name+'</div><div class="journal-entry-date">'+(prof.dates[id]||'')+'</div></div></div><div class="journal-entry-preview">'+prev+'</div></div>';}).join('');
+}
+
+// ── CHALLENGES ──
+function getChallengeProgress(ch){
+  const prof=currentProfile();
+  const qualifying=PARKS.filter(ch.filter);
+  const done=qualifying.filter(p=>prof.visited.includes(p.id)).length;
+  return{done,total:ch.count,pct:Math.min(100,Math.round(done/ch.count*100))};
+}
+function renderChallenges(){
+  document.getElementById('challenges-grid').innerHTML=CHALLENGES.map(ch=>{
+    const prog=getChallengeProgress(ch);const done=prog.pct>=100;
+    return'<div class="challenge-card'+(done?' complete':'')+'"><div class="challenge-top"><span class="challenge-emoji">'+ch.emoji+'</span><div><div class="challenge-name">'+ch.name+'</div><div class="challenge-desc">'+ch.desc+'</div></div>'+(done?'<span style="font-size:20px;margin-left:auto">✅</span>':'')+'</div><div class="challenge-bar-wrap"><div class="challenge-bar'+(done?' done':'')+'" style="width:'+prog.pct+'%"></div></div><div class="challenge-pct">'+prog.done+' / '+prog.total+' · '+prog.pct+'%</div></div>';
+  }).join('');
+}
+
+// ── DIRECTIONS ──
+function openDirections(){
+  const p=PARKS.find(x=>x.id===currentModalParkId);if(!p)return;
+  window.open('https://www.google.com/maps/dir/?api=1&destination='+p.lat+','+p.lng+'&travelmode=driving','_blank');
+}
+function updateDistDisplay(){
+  const p=PARKS.find(x=>x.id===currentModalParkId);if(!p)return;
+  if(userLat&&userLng){const d=haversine(userLat,userLng,p.lat,p.lng);document.getElementById('modal-dist').textContent='📍 '+(d*0.621371).toFixed(1)+' miles away';}
+  else document.getElementById('modal-dist').textContent='Tap "Check Me In" to see distance';
+}
+
+// ── INIT ──
+renderProfiles();
+updateStats();
+renderBadges();
+renderGrid();
+
+// GPS
+const GPS_RADIUS_CHECKIN = 1.0; // km — within this distance, auto-highlight as "at park"
+const GPS_RADIUS_NEARBY = 25;   // km — show parks within this range
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatDist(km) {
+  if (km < 1) return (km * 1000).toFixed(0) + ' m away';
+  return km.toFixed(1) + ' km away';
+}
+
+function startGPS() {
+  const btn = document.getElementById('gps-btn');
+  const status = document.getElementById('gps-status');
+  if (!navigator.geolocation) {
+    status.textContent = 'GPS not supported on this device.';
+    status.className = 'gps-status error';
+    return;
+  }
+  btn.classList.add('scanning');
+  document.getElementById('gps-icon').textContent = '🔄';
+  status.textContent = 'Getting your location...';
+  status.className = 'gps-status';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      btn.classList.remove('scanning');
+      document.getElementById('gps-icon').textContent = '📍';
+      const { latitude, longitude, accuracy } = pos.coords;
+      userLat = latitude; userLng = longitude;
+      showNearbyParks(latitude, longitude, accuracy);
+    },
+    err => {
+      btn.classList.remove('scanning');
+      document.getElementById('gps-icon').textContent = '📍';
+      const msgs = {1:'Location access denied. Please enable in browser settings.', 2:'Unable to determine location. Try again outside.', 3:'Location request timed out. Try again.'};
+      status.textContent = msgs[err.code] || 'Location error. Try again.';
+      status.className = 'gps-status error';
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  );
+}
+
+function showNearbyParks(lat, lng, accuracy) {
+  const status = document.getElementById('gps-status');
+  const nearbySection = document.getElementById('gps-nearby-cards');
+  const nearbyList = document.getElementById('nearby-list');
+
+  const parksWithDist = PARKS.map(p => ({
+    ...p,
+    dist: haversine(lat, lng, p.lat, p.lng)
+  })).filter(p => p.dist <= GPS_RADIUS_NEARBY)
+     .sort((a, b) => a.dist - b.dist);
+
+  if (parksWithDist.length === 0) {
+    status.textContent = 'No Florida State Parks within 25 km. Drive closer to a park and try again!';
+    status.className = 'gps-status';
+    nearbySection.classList.remove('show');
+    return;
+  }
+
+  const closest = parksWithDist[0];
+  const atPark = closest.dist <= GPS_RADIUS_CHECKIN;
+
+  if (atPark) {
+    status.textContent = 'You are at ' + closest.name + '! Badge unlocked!';
+    status.className = 'gps-status found';
+  } else {
+    const accText = accuracy ? ' (±' + Math.round(accuracy) + 'm)' : '';
+    status.textContent = parksWithDist.length + ' park' + (parksWithDist.length > 1 ? 's' : '') + ' found nearby' + accText;
+    status.className = 'gps-status found';
+  }
+
+  nearbyList.innerHTML = parksWithDist.slice(0, 6).map(park => {
+    const isVisited = visited.includes(park.id);
+    const atThisPark = park.dist <= GPS_RADIUS_CHECKIN;
+    const distClass = park.dist < 1 ? 'close' : 'medium';
+    return '<div class="nearby-card ' + (atThisPark ? 'at-park' : '') + '" onclick="openModal(' + park.id + ', ' + (!isVisited) + ')">' +
+      '<div class="nearby-emoji">' + park.emoji + '</div>' +
+      '<div class="nearby-info">' +
+        '<div class="nearby-name">' + park.name + '</div>' +
+        '<div class="nearby-dist ' + distClass + '">' + (atThisPark ? '✅ You are here!' : formatDist(park.dist)) + '</div>' +
+      '</div>' +
+      '<button class="nearby-checkin-btn ' + (isVisited ? 'done' : '') + '" onclick="event.stopPropagation(); gpsTap(' + park.id + ', ' + atThisPark + ')">' +
+        (isVisited ? '✓ Done' : atThisPark ? '🏅 Check In' : '+ Add') +
+      '</button>' +
+    '</div>';
+  }).join('');
+
+  nearbySection.classList.add('show');
+
+  // Auto-check-in if at park
+  if (atPark && !visited.includes(closest.id)) {
+    setTimeout(() => { toggleVisit(closest.id); }, 600);
+  }
+}
+
+function gpsTap(id, atPark) {
+  if (atPark || !visited.includes(id)) {
+    toggleVisit(id);
+    // Refresh nearby list display
+    document.querySelectorAll('.nearby-card').forEach(card => {
+      const btn = card.querySelector('.nearby-checkin-btn');
+      if (btn) {
+        const cardId = parseInt(btn.getAttribute('onclick').match(/\d+/)[0]);
+        if (cardId === id && visited.includes(id)) {
+          btn.textContent = '✓ Done';
+          btn.classList.add('done');
+        }
+      }
+    });
+  }
+}
+
+
+</script>
+<!-- PWA Install Banner -->
+<div id="install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:200; background:#1a1008; border-top:3px solid #c9a84c; padding:14px 18px; font-family:'Special Elite',cursive;">
+  <div style="max-width:600px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <span style="font-size:28px;">🌿</span>
+    <div style="flex:1; min-width:160px;">
+      <div style="color:#c9a84c; font-size:13px; letter-spacing:1px;">INSTALL FL PARKS PASSPORT</div>
+      <div id="install-instructions" style="color:#9ab08d; font-size:11px; margin-top:2px; letter-spacing:1px;"></div>
+    </div>
+    <button id="install-btn" onclick="installApp()" style="display:none; background:#c9a84c; color:#3d2b1f; border:none; border-radius:4px; padding:9px 18px; font-family:'Special Elite',cursive; font-size:12px; letter-spacing:2px; cursor:pointer; text-transform:uppercase; white-space:nowrap;">Add to Home Screen</button>
+    <button onclick="document.getElementById('install-banner').style.display='none'" style="background:transparent; border:1px solid #4a6741; border-radius:4px; padding:8px 12px; color:#9ab08d; font-family:'Special Elite',cursive; font-size:11px; cursor:pointer; white-space:nowrap;">Dismiss</button>
+  </div>
+</div>
+
+<script>
+let deferredPrompt = null;
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function isInStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallBanner('android');
+});
+
+function showInstallBanner(platform) {
+  if (isInStandaloneMode()) return; // already installed
+  const banner = document.getElementById('install-banner');
+  const instructions = document.getElementById('install-instructions');
+  const installBtn = document.getElementById('install-btn');
+  if (platform === 'ios') {
+    instructions.textContent = 'Tap the Share button ↑ then "Add to Home Screen"';
+    installBtn.style.display = 'none';
+  } else {
+    instructions.textContent = 'Install as an app — works offline!';
+    installBtn.style.display = 'block';
+  }
+  banner.style.display = 'flex';
+}
+
+async function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const result = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').style.display = 'none';
+}
+
+// Show iOS instructions after a short delay if on iPhone/iPad
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (isIOS() && !isInStandaloneMode()) {
+      showInstallBanner('ios');
+    }
+  }, 3000);
+});
+</script>
+
+</body>
+</html>
