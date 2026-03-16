@@ -1,0 +1,28 @@
+{
+  "name": "Florida State Parks Passport",
+  "short_name": "FL Parks",
+  "description": "Collect badges for every Florida State Park you visit. 175 parks with GPS check-in.",
+  "start_url": "./florida-parks-passport.html",
+  "display": "standalone",
+  "background_color": "#3d2b1f",
+  "theme_color": "#3d2b1f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%233d2b1f'/><circle cx='96' cy='96' r='70' fill='%23c9a84c' opacity='.2'/><circle cx='96' cy='96' r='55' fill='none' stroke='%23c9a84c' stroke-width='4'/><text x='96' y='118' text-anchor='middle' font-size='72' font-family='serif'>&#127807;</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%233d2b1f'/><circle cx='256' cy='256' r='190' fill='%23c9a84c' opacity='.2'/><circle cx='256' cy='256' r='150' fill='none' stroke='%23c9a84c' stroke-width='8'/><text x='256' y='320' text-anchor='middle' font-size='200' font-family='serif'>&#127807;</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["travel", "lifestyle", "outdoors"],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
